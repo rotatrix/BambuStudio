@@ -215,7 +215,7 @@ static const wxString ctrl = _L("Ctrl+");
 #endif
 
 MainFrame::MainFrame() :
-DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_STYLE, "mainframe")
+DPIFrame(NULL, wxID_ANY, SLIC3R_APP_DISPLAY_NAME, wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_STYLE, "mainframe")
     , m_printhost_queue_dlg(new PrintHostQueueDialog(this))
     // BBS
     , m_recent_projects(18)

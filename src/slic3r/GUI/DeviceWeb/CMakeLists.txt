@@ -98,8 +98,7 @@ function(prepare_node_env)
         message(STATUS "Extracting Node.js...")
         if(WIN32)
             execute_process(
-                COMMAND powershell -NoProfile -Command
-                        "Expand-Archive -Path '${NODE_CACHE_DIR}/${NODE_ARCHIVE_NAME}' -DestinationPath '${NODE_CACHE_DIR}' -Force"
+                COMMAND "${CMAKE_COMMAND}" -E tar xf "${NODE_ARCHIVE_NAME}"
                 WORKING_DIRECTORY "${NODE_CACHE_DIR}"
                 RESULT_VARIABLE extract_result
                 OUTPUT_VARIABLE extract_output

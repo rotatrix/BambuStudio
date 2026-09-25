@@ -51,7 +51,7 @@ def main():
             raise ValueError('Existing release is not the matching draft prerelease')
         subprocess.run(['gh', 'release', 'upload', tag, *assets, '--clobber'], check=True)
         return
-    notes = f'''BambuStudio 2.8.2.61 â€” Rotatrix Build (unofficial)
+    notes = f'''BambuStudio 2.8.2.61 — Rotatrix Build (unofficial)
 
 Built from commit {commit}. All three platforms passed compilation, viewport
 checks and package smoke checks in the same Actions run:

@@ -5,7 +5,7 @@
 #include "Plater.hpp"
 #include "PartPlate.hpp"
 #include "MeshUtils.hpp"
-#include <GL/glew.h>
+#include "OpenGLManager.hpp"
 #include <imgui/imgui.h>
 #include <openaxis/logging.hpp>
 #include <sstream>
@@ -275,6 +275,9 @@ Value OpenAxisController::fact(const std::string &name) {
         for (unsigned i = 0; i < volumes.size(); ++i) {
             const auto *volume = volumes[i];
             if (!volume->is_active || volume->disabled || (only && !selected.count(i))) continue;
+            // Wipe towers and generated support volumes have synthetic IDs.
+            // The native model lookup assumes nonnegative object/volume indices.
+            if (volume->object_idx() < 0 || volume->volume_idx() < 0) continue;
             const auto *model_volume = get_model_volume(*volume, *m_canvas.get_model());
             if (!model_volume || model_volume->mesh().empty()) continue;
             auto &pick = m_pick_meshes[model_volume->id().id];
@@ -331,9 +334,12 @@ void OpenAxisController::render_indicator() {
     if (!OpenAxisOverlay::visible({clip.x(), clip.y(), clip.z(), clip.w()})) return;
     const ImVec2 pixel(float((clip.x() / clip.w() + 1) * .5 * m_width / m_scale), float((1 - clip.y() / clip.w()) * .5 * m_height / m_scale));
     float depth = 1.f;
-    glReadPixels(std::clamp(int(pixel.x * m_scale), 0, m_width - 1),
-                 std::clamp(m_height - 1 - int(pixel.y * m_scale), 0, m_height - 1),
-                 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+    // BambuStudio renders through multisampled offscreen framebuffers. Its
+    // manager resolves the depth attachment and restores the active framebuffer.
+    wxGetApp().get_opengl_manager()->read_pixel("",
+        std::clamp(int(pixel.x * m_scale), 0, m_width - 1),
+        std::clamp(m_height - 1 - int(pixel.y * m_scale), 0, m_height - 1),
+        1, 1, EPixelFormat::DepthComponent, EPixelDataType::Float, &depth);
     const int alpha = (clip.z() / clip.w() + 1) * .5 > depth + 1e-5 ? 64 : 255;
     auto *draw = ImGui::GetBackgroundDrawList();
     draw->AddCircle(pixel, 4.75f, IM_COL32(0, 0, 0, alpha), 32, 1.5f);

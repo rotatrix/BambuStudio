@@ -7,11 +7,13 @@ if ($Stage -eq 'deps') {
         "-DDESTDIR=$PWD/deps/build/BambuStudio_dep" -DCMAKE_BUILD_TYPE=Release -DDEP_DEBUG=OFF
     cmake --build deps/build --config Release --target deps --parallel 1
 } else {
+    $pkgConfig = (Get-Command pkg-config.exe -ErrorAction Stop).Source
     cmake -S . -B build -G 'Visual Studio 17 2022' -A x64 `
         -DCMAKE_BUILD_TYPE=Release -DCMAKE_CONFIGURATION_TYPES=Release `
         -DBBL_RELEASE_TO_PUBLIC=1 -DBBL_INTERNAL_TESTING=0 `
         "-DCMAKE_PREFIX_PATH=$PWD/deps/build/BambuStudio_dep/usr/local" `
         "-DCMAKE_INSTALL_PREFIX=$PWD/build/BambuStudio" `
+        "-DPKG_CONFIG_EXECUTABLE=$pkgConfig" `
         -DSLIC3R_OPENAXIS=ON -DOPENAXIS_SOURCE_DIR= -DSLIC3R_PCH=ON
     cmake --build build --config Release --parallel 2
     cmake --install build --config Release

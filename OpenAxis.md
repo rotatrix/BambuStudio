@@ -1,5 +1,8 @@
 # OpenAxis navigation
 
+Based on upstream stable release `v02.08.02.61`, commit
+`926a7192574bcb9b3a732e1ec59a46d79cb45466`.
+
 Enable the optional native GUI integration with `-DSLIC3R_OPENAXIS=ON` when
 configuring BambuStudio. CMake 3.24 or newer fetches the OpenAxis C++ SDK at
 `cpp/v1.0.0-rc.1`; `-DOPENAXIS_SOURCE_DIR=/path/to/openaxis` uses a local checkout.
@@ -49,3 +52,18 @@ branch builds produce test artifacts without creating a release. The release gat
 checksum, full source commit, SDK revision, and workflow run ID; it refuses to
 modify a published release. GUI and device testing are still required before
 publishing. Windows packages are unsigned; macOS bundles are ad-hoc signed.
+
+## Local Windows build
+
+Use a Visual Studio 2022 x64 developer shell with CMake, native Perl, and
+`pkg-config.exe` on PATH. PowerShell 7 is required by the build script.
+
+```powershell
+pwsh -File .github/scripts/openaxis-windows.ps1 deps
+pwsh -File .github/scripts/openaxis-windows.ps1 build
+```
+
+The installed application is `build/BambuStudio/bambu-studio.exe`. The build
+stage runs the viewport tests and launches the installed application with
+`--help` as a loader smoke check. It does not exercise a connected Rotatrix
+or interactive GUI navigation.

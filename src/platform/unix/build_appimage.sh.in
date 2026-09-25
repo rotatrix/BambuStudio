@@ -1,4 +1,5 @@
 #!/bin/sh
+set -eu
 APPIMAGETOOLURL="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
 
 
@@ -40,10 +41,10 @@ EOF
 
 
 if [ -f /.dockerenv ] ; then # Only run if inside of a Docker Container
-  ../appimagetool.AppImage --appimage-extract-and-run . $([ ! -z "${container}" ] && echo '--appimage-extract-and-run')
+  ../appimagetool.AppImage --appimage-extract-and-run . "${APP_IMAGE}"
 else
-  ../appimagetool.AppImage . $([ ! -z "${container}" ] && echo '--appimage-extract-and-run')
+  ../appimagetool.AppImage . "${APP_IMAGE}"
 fi
 
-mv @SLIC3R_APP_KEY@-x86_64.AppImage ${APP_IMAGE}
-chmod +x ${APP_IMAGE}
+test -s "${APP_IMAGE}"
+chmod +x "${APP_IMAGE}"

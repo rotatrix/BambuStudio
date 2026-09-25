@@ -1545,6 +1545,11 @@ GLCanvas3D::GLCanvas3D(wxGLCanvas* canvas, Bed3D &bed)
 
 GLCanvas3D::~GLCanvas3D()
 {
+#ifdef SLIC3R_OPENAXIS
+    if (m_openaxis_scheduler) m_openaxis_scheduler->before_dispatch = {};
+    m_openaxis.reset();
+    m_openaxis_scheduler.reset();
+#endif
     reset_volumes(false);
 
     m_sel_plate_toolbar.del_all_item();
@@ -1631,6 +1636,30 @@ void GLCanvas3D::on_prepare_volume_renamed(int object_idx, int volume_idx, const
     if (m_assembly_steps)
         m_assembly_steps->on_prepare_volume_renamed(object_idx, volume_idx, new_name);
 }
+
+#ifdef SLIC3R_OPENAXIS
+void GLCanvas3D::update_openaxis_projection()
+{
+    get_active_camera().apply_projection(_max_bounding_box(true, true, true, is_volumes_limit_to_expand_plate()));
+}
+
+void GLCanvas3D::refresh_openaxis()
+{
+    if (!m_openaxis || !m_canvas) return;
+    const Size size = get_canvas_size();
+    const wxPoint cursor = m_canvas->ScreenToClient(wxGetMousePosition());
+    // wx coordinates are logical on Retina; the camera viewport is physical.
+#if ENABLE_RETINA_GL
+    const double scale = size.get_scale_factor();
+#else
+    const double scale = 1.0;
+#endif
+    const bool focused = m_canvas->IsShownOnScreen() && m_canvas->IsEnabled() &&
+        wxTheApp->IsActive() && wxGetApp().plater()->get_current_canvas3D() == this;
+    m_openaxis->refresh(focused, int(cursor.x * scale), int(cursor.y * scale),
+                       size.get_width(), size.get_height(), scale);
+}
+#endif
 
 void GLCanvas3D::post_event(wxEvent &&event)
 {
@@ -1837,6 +1866,9 @@ unsigned int GLCanvas3D::get_volumes_count() const {
 
 void GLCanvas3D::reset_volumes(bool set_notice)
 {
+#ifdef SLIC3R_OPENAXIS
+    ++m_openaxis_scene_revision;
+#endif
     if (!m_initialized)
         return;
 
@@ -2833,6 +2865,18 @@ void GLCanvas3D::render(bool only_init)
 
     wxGetApp().imgui()->new_frame();
 
+#ifdef SLIC3R_OPENAXIS
+    if (!m_openaxis) {
+        m_openaxis_scheduler = std::make_shared<OpenAxisScheduler>();
+        m_openaxis = std::make_unique<OpenAxisController>(*this, camera, m_openaxis_scheduler, [this] {
+            set_as_dirty();
+            if (m_canvas) m_canvas->Refresh(false);
+        });
+        m_openaxis_scheduler->before_dispatch = [this] { refresh_openaxis(); };
+    }
+    refresh_openaxis();
+#endif
+
     if (m_picking_enabled) {
         if (m_rectangle_selection.is_dragging())
             // picking pass using rectangle selection
@@ -2956,6 +3000,9 @@ void GLCanvas3D::render(bool only_init)
          _composite_silhouette_effect();
      }
 
+#ifdef SLIC3R_OPENAXIS
+    m_openaxis->render_indicator();
+#endif
     _render_sequential_clearance();
 #if ENABLE_RENDER_SELECTION_CENTER
     _render_selection_center();
@@ -3064,6 +3111,9 @@ void GLCanvas3D::render(bool only_init)
     }
 
     wxGetApp().plater()->get_mouse3d_controller().render_settings_dialog(*this);
+#ifdef SLIC3R_OPENAXIS
+    m_openaxis->render_diagnostics(m_openaxis_diagnostics);
+#endif
 
     float right_margin = SLIDER_DEFAULT_RIGHT_MARGIN;
     float bottom_margin = SLIDER_DEFAULT_BOTTOM_MARGIN;
@@ -3444,6 +3494,9 @@ void GLCanvas3D::mirror_selection(Axis axis)
 // 5) Out of bed collision status & message overlay (texture)
 void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_refresh)
 {
+#ifdef SLIC3R_OPENAXIS
+    ++m_openaxis_scene_revision;
+#endif
     if (m_canvas == nullptr || m_config == nullptr || m_model == nullptr)
         return;
 

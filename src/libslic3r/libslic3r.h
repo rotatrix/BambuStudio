@@ -2,8 +2,8 @@
 #define _libslic3r_h_
 
 #include "libslic3r_version.h"
-#define SLIC3R_APP_FULL_NAME "Bambu Studio"
-#define GCODEVIEWER_APP_NAME "BambuStudio G-code Viewer"
+#define SLIC3R_APP_FULL_NAME SLIC3R_APP_DISPLAY_NAME
+#define GCODEVIEWER_APP_NAME "BambuStudio G-code Viewer - Rotatrix Build (unofficial)"
 #define GCODEVIEWER_APP_KEY  "BambuStudioGcodeViewer"
 #define GCODEVIEWER_BUILD_ID std::string("BambuStudio G-code Viewer-") + std::string(SLIC3R_VERSION) + std::string("-RC")
 

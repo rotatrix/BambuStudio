@@ -729,6 +729,12 @@ if (UNIX AND NOT APPLE)
 endif ()
 
 add_library(libslic3r_gui STATIC ${SLIC3R_GUI_SOURCES})
+include(${CMAKE_SOURCE_DIR}/cmake/OpenAxis.cmake)
+if(SLIC3R_OPENAXIS)
+    target_sources(libslic3r_gui PRIVATE GUI/OpenAxisController.cpp)
+    target_link_libraries(libslic3r_gui OpenAxis::openaxis)
+    target_compile_definitions(libslic3r_gui PUBLIC SLIC3R_OPENAXIS)
+endif()
 
 if (TARGET device_page_build)
     add_dependencies(libslic3r_gui device_page_build)

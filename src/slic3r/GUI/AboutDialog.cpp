@@ -280,7 +280,7 @@ AboutDialog::AboutDialog()
     // version
     {
         vesizer->Add(0, FromDIP(165), 1, wxEXPAND, FromDIP(5));
-        auto version_text = GUI_App::format_display_version();
+        auto version_text = GUI_App::format_display_version() + " - Rotatrix Build (unofficial)";
 #if BBL_INTERNAL_TESTING
         wxString versionText    = BBL_INTERNAL_TESTING == 1 ? _L("Internal Version") : _L("Beta Version");
         auto     version_string = versionText + " " + std::string(version_text);

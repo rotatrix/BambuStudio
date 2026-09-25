@@ -1,3 +1,8 @@
+# Bambu Studio 2.8.2.61 — Rotatrix Build (unofficial)
+
+This fork adds OpenAxis navigation for Rotatrix. It is not an official Bambu Lab release.
+See [OpenAxis integration](OpenAxis.md) for building and verification.
+
 ![image](https://user-images.githubusercontent.com/106916061/179006347-497d24c0-9bd6-45b7-8c49-d5cc8ecfe5d7.png)
 # BambuStudio
 Bambu Studio is a cutting-edge, feature-rich slicing software.  

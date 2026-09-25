@@ -1200,12 +1200,12 @@ void MainFrame::update_title()
     m_title_cache = title;
 #ifdef __WINDOWS__
     if (m_topbar)
-        m_topbar->SetTitle(title);
+        m_topbar->SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME);
     // Also reflect the "*" in the window/taskbar title, which set_project_name builds
     // as "<name> - BambuStudio".
-    SetTitle(title + " - BambuStudio");
+    SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME);
 #else
-    SetTitle(title);
+    SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME);
 #ifdef __APPLE__
     if (!title.IsEmpty())
         update_title_colour_after_set_title();
@@ -2822,6 +2822,12 @@ static wxMenu* generate_help_menu()
             dlg.ShowModal();
         });
 
+#ifdef SLIC3R_OPENAXIS
+    append_menu_item(helpMenu, wxID_ANY, "OpenAxis Diagnostics", "Show OpenAxis navigation diagnostics",
+        [](wxCommandEvent&) {
+            if (auto *canvas = wxGetApp().plater()->get_current_canvas3D()) canvas->toggle_openaxis_diagnostics();
+        });
+#endif
     // About
 #ifndef __APPLE__
     wxString about_title = wxString::Format(_L("&About %s"), SLIC3R_APP_FULL_NAME);

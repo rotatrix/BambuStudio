@@ -2,43 +2,27 @@ name: Build all
 
 on:
   push:
-    branches:
-     - master
-    paths:
-     - 'deps/**'
-     - 'src/**'
-     - '**/CMakeLists.txt'
-     - 'version.inc'
-     - 'bbl/**'
-     - 'resources/**'
-     - ".github/workflows/build_*.yml"
-
+    branches: [master, 'rotatrix/**']
+    tags: ['*-rotatrix.*']
   pull_request:
-    branches:
-     - master
-    paths:
-     - 'deps/**'
-     - 'src/**'
-     - '**/CMakeLists.txt'
-     - 'version.inc'
-     - ".github/workflows/build_*.yml"
-     - 'BuildLinux.sh'
-     - 'build_win.bat'
-    
-  workflow_dispatch: # manual dispatch
-      inputs:
-        build-deps-only:
-            description: 'Only build dependencies (bypasses caching)'
-            type: boolean
-            default: false
+    branches: [master, 'rotatrix/*']
+  workflow_dispatch:
+    inputs:
+      build-deps-only:
+        description: Only build upstream dependencies (master)
+        type: boolean
+        default: false
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   build_all:
     name: Build All
+    if: github.ref == 'refs/heads/master' || github.base_ref == 'master'
     strategy:
       fail-fast: false
       matrix:
@@ -59,3 +43,31 @@ jobs:
       arch: ${{ matrix.arch }}
       build-deps-only: ${{ inputs.build-deps-only || false }}
     secrets: inherit
+
+  rotatrix-test:
+    if: startsWith(github.ref, 'refs/heads/rotatrix/') || startsWith(github.base_ref, 'rotatrix/')
+    uses: ./.github/workflows/openaxis-build.yml
+  rotatrix-release:
+    if: github.event_name == 'push' && github.ref_type == 'tag' && contains(github.ref_name, '-rotatrix.')
+    uses: ./.github/workflows/openaxis-build.yml
+  release:
+    name: Release tag packages
+    needs: rotatrix-release
+    if: github.event_name == 'push' && github.ref_type == 'tag' && contains(github.ref_name, '-rotatrix.')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: BambuStudio-Rotatrix-*-${{ github.sha }}
+          merge-multiple: true
+          path: release-assets
+      - name: Validate packages and create draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python .github/scripts/openaxis-release.py release-assets

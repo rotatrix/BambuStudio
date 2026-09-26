@@ -37,21 +37,41 @@ In a GUI build, verify rotation, pan, zoom, native mouse input after navigation,
 plate switching, selection-only picking, and focus loss in Prepare and Preview.
 Open and close the diagnostics panel and confirm viewport evidence follows it.
 
-## Preview builds
+## Fork lifecycle and CI
 
-`.github/workflows/openaxis-build.yml` builds Windows x64, macOS ARM64, and
-Linux x64 packages on pushes to `rotatrix/stable`. Version branches such as
-`rotatrix/2.8.2.61` are built manually with `workflow_dispatch`, which can select a
-single platform for debugging. Advance `rotatrix/stable` to a tested version
-commit to start the release build; pushing version branches does not duplicate it. Installed dependencies are cached separately per
-platform and dependency-source hash.
+Current development branch: `rotatrix/work/v02.08.02.61`. It is disposable work,
+not a maintained release. No maintained branch or release tag has been created.
+The work branch is temporarily the GitHub default so its CI and documentation
+are visible. Promote a cleaned patch stack to `rotatrix/v02.08.02.61` when ready,
+and then set that maintained branch as the default. Preserve its history after
+publication; contributors target the applicable maintained branch.
 
-After all three builds, overlay checks, and package smoke checks pass, the
-workflow creates a draft prerelease only for `rotatrix/stable`. Manual version
-branch builds produce test artifacts without creating a release. The release gate checks each package's
-checksum, full source commit, SDK revision, and workflow run ID; it refuses to
-modify a published release. GUI and device testing are still required before
-publishing. Windows packages are unsigned; macOS bundles are ad-hoc signed.
+The repository follows [the maintained fork spec](docs/rotatrix-fork-workflow.md).
+The upstream `build_all.yml` remains the CI entry point and retains its upstream
+jobs. Rotatrix refs call `openaxis-build.yml`, adapting the upstream build scripts
+and packaging with OpenAxis enabled. The adapter retains the validated VS 2022
+compiler for this release and pins CMake 3.31.6. It builds Windows x64, Intel and
+ARM64 macOS (macOS 15 and 26 runners), and Ubuntu 22.04, 24.04, and 26.04 x64.
+Dependency caches are isolated by platform and dependency-source hash.
+
+Pushes to `rotatrix/**` and PRs into `rotatrix/*` run build, viewport tests, and
+package smoke checks. Artifacts include the full source SHA in their names and
+expire after 14 days. Manual runs can select an OS family. Normal builds never
+create tags or GitHub releases.
+
+Only pushes of `*-rotatrix.*` tags enter the release job. For this upstream base,
+use `v02.08.02.61-rotatrix.N` or `v02.08.02.61-rotatrix.N-beta.N`. Tags are immutable;
+existing release assets are never replaced. Final tags must identify a commit on
+`rotatrix/v02.08.02.61`; beta tags may identify tested development work. The gate
+verifies every package checksum, source SHA, SDK SHA, and workflow run ID before
+staging a draft (beta tags are marked prerelease).
+
+Release readiness is intentionally separate from work-branch CI: distribution
+signing/notarization credentials are not configured. Current Windows artifacts
+are unsigned and macOS artifacts are ad-hoc signed. Before publishing a final
+release, configure signing/notarization, produce the signed distributions, and
+complete GUI/device validation. Do not publish the unsigned draft as a final
+release. The current development setup does not publish releases automatically.
 
 ## Local Windows build
 

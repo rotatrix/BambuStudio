@@ -3,6 +3,9 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 platform=${1:?Platform required}
 stage=${2:?Stage required}
+mac_arch=${OPENAXIS_MAC_ARCH:-arm64}
+mac_target=11.3
+if [[ "$mac_arch" == x86_64 ]]; then mac_target=10.15; fi
 export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-2}
 export SLIC3R_OPENAXIS=ON
 if [[ "$platform" == macos ]]; then
@@ -12,7 +15,7 @@ fi
 if [[ "$stage" == deps ]]; then
   case "$platform" in
     linux) ./BuildLinux.sh -dfr ;;
-    macos) ./BuildMac.sh -dx -a arm64 -t 11.3 ;;
+    macos) ./BuildMac.sh -dx -a "$mac_arch" -t "$mac_target" ;;
     *) exit 2 ;;
   esac
 elif [[ "$stage" == build ]]; then
@@ -21,8 +24,8 @@ elif [[ "$stage" == build ]]; then
       ./BuildLinux.sh -sfr
       ;;
     macos)
-      ./BuildMac.sh -sx -a arm64 -t 11.3
-      app=build/arm64/BambuStudio/BambuStudio.app
+      ./BuildMac.sh -sx -a "$mac_arch" -t "$mac_target"
+      app=build/$mac_arch/BambuStudio/BambuStudio.app
       codesign --force --deep --sign - "$app"
       codesign --verify --deep --strict "$app"
       "$app/Contents/MacOS/BambuStudio" --help

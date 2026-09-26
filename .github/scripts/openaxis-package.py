@@ -8,22 +8,26 @@ import subprocess
 import sys
 
 platform = sys.argv[1]
+is_mac = platform.startswith('macos-')
+is_linux = platform.startswith('linux-')
+mac_arch = 'x86_64' if platform == 'macos-x86_64' else 'arm64'
+mac_app = Path(f'build/{mac_arch}/BambuStudio/BambuStudio.app')
 commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
 if os.environ.get('GITHUB_SHA', commit) != commit:
     raise SystemExit('Checkout differs from the Actions source commit')
-build = Path('build/arm64' if platform == 'macos-arm64' else 'build')
+build = Path(f'build/{mac_arch}' if is_mac else 'build')
 sdk_source = build / '_deps/openaxis-src'
 # Include the licenses for the SDK and its bundled websocket implementation.
 resources = Path('resources')
 for filename, source in [('OpenAxis-LICENSE.txt', sdk_source / 'LICENSE'),
                          ('OpenAxis-IXWebSocket-LICENSE.txt', sdk_source / 'cpp/third_party/ixwebsocket/LICENSE.txt')]:
     destination = (Path('build/BambuStudio/resources') if platform == 'windows-x64' else
-                   Path('build/arm64/BambuStudio/BambuStudio.app/Contents/Resources') if platform == 'macos-arm64' else resources)
+                   mac_app / 'Contents/Resources' if is_mac else resources)
     shutil.copy2(source, destination / filename)
-if platform == 'linux-x64':
+if is_linux:
     subprocess.run(['bash', './src/BuildLinuxImage.sh', '-i'], cwd='build', check=True)
-elif platform == 'macos-arm64':
-    app = 'build/arm64/BambuStudio/BambuStudio.app'
+elif is_mac:
+    app = str(mac_app)
     subprocess.run(['codesign', '--force', '--deep', '--sign', '-', app], check=True)
     subprocess.run(['codesign', '--verify', '--deep', '--strict', app], check=True)
 name = f'BambuStudio-Rotatrix-{platform}-{commit[:12]}'
@@ -36,12 +40,12 @@ if platform == 'windows-x64':
     shutil.make_archive(str(dist / name), 'zip', source.parent, source.name)
     package = dist / (name + '.zip')
     build = Path('build')
-elif platform == 'macos-arm64':
-    source = Path('build/arm64/BambuStudio/BambuStudio.app')
+elif is_mac:
+    source = mac_app
     package = dist / (name + '.zip')
     subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(source), str(package)], check=True)
-    build = Path('build/arm64')
-elif platform == 'linux-x64':
+    build = Path(f'build/{mac_arch}')
+elif is_linux:
     images = list(Path('build').glob('BambuStudio_ubu64.AppImage'))
     if len(images) != 1:
         raise SystemExit(f'Expected exactly one AppImage, found {images}')

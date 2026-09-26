@@ -1,4 +1,4 @@
-"""Create a draft only from verified artifacts produced by this workflow run."""
+"""Stage an immutable version-tag release from verified artifacts; never release branch builds."""
 import hashlib
 import json
 import os
@@ -14,7 +14,7 @@ def validate_assets(directory, commit, run_id):
         raise ValueError('Invalid source commit')
     assets = []
     sdk_commits = set()
-    for platform, extension in [('windows-x64', 'zip'), ('macos-arm64', 'zip'), ('linux-x64', 'AppImage')]:
+    for platform, extension in [('windows-x64', 'zip'), ('macos-arm64', 'zip'), ('macos-x86_64', 'zip'), ('macos-arm64-macos26', 'zip'), ('linux-x64', 'AppImage'), ('linux-x64-ubuntu22', 'AppImage'), ('linux-x64-ubuntu26', 'AppImage')]:
         package = directory / f'BambuStudio-Rotatrix-{platform}-{commit[:12]}.{extension}'
         checksum = package.with_name(package.name + '.sha256')
         manifest = package.with_name(package.name + '.json')
@@ -38,39 +38,51 @@ def validate_assets(directory, commit, run_id):
     return assets
 
 
+def release_tag(tag, ref_type):
+    match = re.fullmatch(r'(v02\.08\.02\.61)-rotatrix\.([1-9][0-9]*)(-beta\.[1-9][0-9]*)?', tag)
+    if ref_type != 'tag' or not match:
+        raise ValueError('Expected <upstream-tag>-rotatrix.N or <upstream-tag>-rotatrix.N-beta.N')
+    return match.group(1), bool(match.group(3))
+
+
 def main():
     commit, run_id, repo = (os.environ[k] for k in ['GITHUB_SHA', 'GITHUB_RUN_ID', 'GH_REPO'])
+    tag = os.environ['GITHUB_REF_NAME']
+    upstream, prerelease = release_tag(tag, os.environ['GITHUB_REF_TYPE'])
+    resolved = subprocess.check_output(['git', 'rev-parse', f'{tag}^{{commit}}'], text=True).strip()
+    if resolved != commit:
+        raise ValueError('Release tag does not identify the built commit')
+    subprocess.run(['git', 'merge-base', '--is-ancestor', upstream, commit], check=True)
+    if not prerelease:
+        # Final versions must come from a maintained branch, never disposable work.
+        subprocess.run(['git', 'fetch', 'origin', f'refs/heads/rotatrix/{upstream}'], check=True)
+        subprocess.run(['git', 'merge-base', '--is-ancestor', commit, 'FETCH_HEAD'], check=True)
     assets = validate_assets(Path(sys.argv[1]), commit, run_id)
-    tag = f'openaxis-preview-{commit}'
-    # Include drafts and fail closed on API/auth errors.
     pages = json.loads(subprocess.check_output(
         ['gh', 'api', '--paginate', '--slurp', f'repos/{repo}/releases'], text=True))
-    matches = [release for page in pages for release in page if release['tag_name'] == tag]
-    if matches:
-        if len(matches) != 1 or not matches[0]['draft'] or not matches[0]['prerelease'] or matches[0]['target_commitish'] != commit:
-            raise ValueError('Existing release is not the matching draft prerelease')
-        subprocess.run(['gh', 'release', 'upload', tag, *assets, '--clobber'], check=True)
-        return
-    notes = f'''BambuStudio 2.8.2.61 — Rotatrix Build (unofficial)
+    if any(release['tag_name'] == tag for page in pages for release in page):
+        raise ValueError('Release already exists; immutable releases must not be overwritten')
+    notes = f"""BambuStudio {upstream} — Rotatrix Build (unofficial)
 
-Built from commit {commit}. All three platforms passed compilation, viewport
-checks and package smoke checks in the same Actions run:
-https://github.com/{repo}/actions/runs/{run_id}
+Source: {commit}
+CI: https://github.com/{repo}/actions/runs/{run_id}
 
-Packages: Windows x64 portable ZIP, macOS ARM64 app ZIP, and Linux x64 AppImage
-for Ubuntu 24.04 and compatible distributions. Checksums and source manifests
-accompany each package.
+Windows x64, macOS Intel/Apple Silicon, and Ubuntu 22.04/24.04/26.04 packages
+include SHA256 checksums and source manifests from the same workflow run.
 
-Windows is unsigned and requires the Microsoft Visual C++ x64 Redistributable.
-macOS is ad-hoc signed and not notarized. GUI and Rotatrix hardware testing
-remain required before publication. This is not an official Bambu Lab release.
-'''
+This draft requires release review before publication. These builds are unsigned
+on Windows and ad-hoc signed on macOS. Final releases require distribution signing
+and notarization where applicable, plus GUI and Rotatrix hardware validation.
+Do not publish an unsigned draft as a final release.
+"""
     with tempfile.TemporaryDirectory() as temp:
         path = Path(temp) / 'notes.md'
         path.write_text(notes, encoding='utf-8')
-        subprocess.run(['gh', 'release', 'create', tag, *assets, '--draft', '--prerelease',
-                        '--target', commit, '--title', f'BambuStudio 2.8.2.61 OpenAxis preview {commit[:12]}',
-                        '--notes-file', str(path)], check=True)
+        command = ['gh', 'release', 'create', tag, *assets, '--verify-tag', '--draft',
+                   '--title', f'BambuStudio {tag}', '--notes-file', str(path)]
+        if prerelease:
+            command.append('--prerelease')
+        subprocess.run(command, check=True)
 
 
 if __name__ == '__main__':

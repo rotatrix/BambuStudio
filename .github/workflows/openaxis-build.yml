@@ -1,11 +1,14 @@
 name: OpenAxis desktop builds
 on:
-  push:
-    branches: ['rotatrix/stable']
+  workflow_call:
+    inputs:
+      platform:
+        type: string
+        default: all
   workflow_dispatch:
     inputs:
       platform:
-        description: Platform to build
+        description: Platform to build (artifacts only)
         type: choice
         default: all
         options: [all, windows, macos, linux]
@@ -13,7 +16,7 @@ permissions:
   contents: read
 concurrency:
   group: openaxis-${{ github.ref }}-${{ inputs.platform || 'all' }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 env:
   CMAKE_BUILD_PARALLEL_LEVEL: '2'
 jobs:
@@ -21,10 +24,14 @@ jobs:
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 360
+    permissions:
+      contents: read
+    env:
+      OPENAXIS_MAC_ARCH: ${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON('{"all":[{"platform":"windows-x64","runner":"windows-2022","script":"windows","prefix":"deps/build/BambuStudio_dep"},{"platform":"macos-arm64","runner":"macos-15","script":"macos","prefix":"deps/build/arm64/BambuStudio_deps"},{"platform":"linux-x64","runner":"ubuntu-24.04","script":"linux","prefix":"deps/build/destdir"}],"windows":[{"platform":"windows-x64","runner":"windows-2022","script":"windows","prefix":"deps/build/BambuStudio_dep"}],"macos":[{"platform":"macos-arm64","runner":"macos-15","script":"macos","prefix":"deps/build/arm64/BambuStudio_deps"}],"linux":[{"platform":"linux-x64","runner":"ubuntu-24.04","script":"linux","prefix":"deps/build/destdir"}]}')[inputs.platform || 'all'] }}
+        include: ${{ fromJSON('{"all":[{"platform":"windows-x64","runner":"windows-2022","script":"windows","prefix":"deps/build/BambuStudio_dep","arch":"x64"},{"platform":"macos-arm64","runner":"macos-15","script":"macos","prefix":"deps/build/arm64/BambuStudio_deps","arch":"arm64"},{"platform":"macos-x86_64","runner":"macos-15-intel","script":"macos","prefix":"deps/build/x86_64/BambuStudio_deps","arch":"x86_64"},{"platform":"macos-arm64-macos26","runner":"macos-26","script":"macos","prefix":"deps/build/arm64/BambuStudio_deps","arch":"arm64"},{"platform":"linux-x64","runner":"ubuntu-24.04","script":"linux","prefix":"deps/build/destdir","arch":"x64"},{"platform":"linux-x64-ubuntu22","runner":"ubuntu-22.04","script":"linux","prefix":"deps/build/destdir","arch":"x64"},{"platform":"linux-x64-ubuntu26","runner":"ubuntu-26.04","script":"linux","prefix":"deps/build/destdir","arch":"x64"}],"windows":[{"platform":"windows-x64","runner":"windows-2022","script":"windows","prefix":"deps/build/BambuStudio_dep","arch":"x64"}],"macos":[{"platform":"macos-arm64","runner":"macos-15","script":"macos","prefix":"deps/build/arm64/BambuStudio_deps","arch":"arm64"},{"platform":"macos-x86_64","runner":"macos-15-intel","script":"macos","prefix":"deps/build/x86_64/BambuStudio_deps","arch":"x86_64"},{"platform":"macos-arm64-macos26","runner":"macos-26","script":"macos","prefix":"deps/build/arm64/BambuStudio_deps","arch":"arm64"}],"linux":[{"platform":"linux-x64","runner":"ubuntu-24.04","script":"linux","prefix":"deps/build/destdir","arch":"x64"},{"platform":"linux-x64-ubuntu22","runner":"ubuntu-22.04","script":"linux","prefix":"deps/build/destdir","arch":"x64"},{"platform":"linux-x64-ubuntu26","runner":"ubuntu-26.04","script":"linux","prefix":"deps/build/destdir","arch":"x64"}]}')[inputs.platform || 'all'] }}
     defaults:
       run:
         shell: bash
@@ -33,6 +40,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validate release guards
+        run: python -B tests/openaxis/test_release.py
       - name: Install CMake and Ninja
         run: python -m pip install cmake==3.31.6 ninja
       - name: Prepare logs
@@ -109,29 +118,3 @@ jobs:
             build/openaxis-checks/Testing/Temporary/LastTest.log
           overwrite: true
           retention-days: 14
-  draft-prerelease:
-    name: Draft prerelease
-    needs: desktop
-    if: github.ref == 'refs/heads/rotatrix/stable' && (github.event_name == 'push' || inputs.platform == 'all')
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: BambuStudio-Rotatrix-windows-x64-${{ github.sha }}
-          path: release-assets
-      - uses: actions/download-artifact@v4
-        with:
-          name: BambuStudio-Rotatrix-macos-arm64-${{ github.sha }}
-          path: release-assets
-      - uses: actions/download-artifact@v4
-        with:
-          name: BambuStudio-Rotatrix-linux-x64-${{ github.sha }}
-          path: release-assets
-      - name: Validate packages and create draft
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: python .github/scripts/openaxis-release.py release-assets

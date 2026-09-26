@@ -46,7 +46,6 @@ are visible. Promote a cleaned patch stack to `rotatrix/v02.08.02.61` when ready
 and then set that maintained branch as the default. Preserve its history after
 publication; contributors target the applicable maintained branch.
 
-The repository follows [the maintained fork spec](docs/rotatrix-fork-workflow.md).
 The upstream `build_all.yml` remains the CI entry point and retains its upstream
 jobs. Rotatrix refs call `openaxis-build.yml`, adapting the upstream build scripts
 and packaging with OpenAxis enabled. The adapter retains the validated VS 2022

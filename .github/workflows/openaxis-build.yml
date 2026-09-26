@@ -54,10 +54,7 @@ jobs:
       - name: Windows prerequisites
         if: runner.os == 'Windows'
         shell: pwsh
-        run: |
-          choco install strawberryperl pkgconfiglite --yes --no-progress
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          'C:\Strawberry\perl\bin' | Out-File -FilePath $env:GITHUB_PATH -Append
+        run: .github/scripts/openaxis-windows-setup.ps1
       - name: Linux prerequisites
         if: runner.os == 'Linux'
         run: |

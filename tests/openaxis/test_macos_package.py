@@ -19,6 +19,7 @@ class MacPackage(unittest.TestCase):
         run = subprocess.run
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
+            (root / 'LICENSE').write_text('Application license')
             build = root / 'build/arm64'
             app = build / 'BambuStudio/BambuStudio.app'
             resources = app / 'Contents/Resources'
@@ -39,6 +40,7 @@ class MacPackage(unittest.TestCase):
             def execute(command, **kwargs):
                 if command[0] == 'codesign':
                     bundle = Path(command[-1])
+                    self.assertTrue((bundle / 'Contents/Resources/BambuStudio-LICENSE.txt').is_file())
                     self.assertTrue((bundle / 'Contents/Resources/OpenAxis-LICENSE.txt').is_file())
                     self.assertTrue((bundle / 'Contents/Resources/OpenAxis-IXWebSocket-LICENSE.txt').is_file())
                     signed.append(command)

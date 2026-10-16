@@ -11,7 +11,7 @@ function(prepare_node_env)
     set(PNPM_VERSION "10.12.1")
 
     # 定义本地缓存目录（放在项目同级目录，clean build 后不会丢失）
-    set(NODE_CACHE_DIR "${CMAKE_SOURCE_DIR}/../node-cache")
+    set(NODE_CACHE_DIR "${CMAKE_SOURCE_DIR}/../node-cache" CACHE PATH "Shared cache for pinned Node.js and pnpm build tools")
 
     # 根据平台确定下载 URL、文件名和 hash 值
     if(WIN32)

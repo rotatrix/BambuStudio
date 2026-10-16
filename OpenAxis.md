@@ -86,6 +86,19 @@ The installed application is `build/BambuStudio/bambu-studio.exe`. The build
 stage runs the viewport tests and launches the installed application with
 `--help` as a loader smoke check. It does not exercise a connected Rotatrix
 or interactive GUI navigation.
+
+For a workspace-local Node/pnpm cache, configure with
+`-DNODE_CACHE_DIR=<oss-forks>/tools/node/22.22.2`. The pinned platform
+distributions remain in versioned subdirectories; the upstream default cache
+location is unchanged. Select `<oss-forks>/tools/cmake/3.31.6/bin/cmake.exe`
+explicitly, without changing global toolchains. Set `CI=true` in the build
+process environment when running unattended so pnpm can recreate its modules
+after a checkout/build-directory relocation without an interactive prompt.
+
+Do not reuse a CMake build tree after moving its source checkout. Configure a
+fresh build directory and inspect installed dependency metadata for absolute
+paths before reusing the dependency prefix. The 2026-10-16 Windows preparation
+uses `build_local`, retaining the older `build/BambuStudio` app untouched.
 ## Local macOS build and package
 
 Use the workspace's CMake 3.31.6 on the build process PATH; do not change global

@@ -14,8 +14,11 @@ def validate_assets(directory, commit, run_id):
         raise ValueError('Invalid source commit')
     assets = []
     sdk_commits = set()
-    for platform, extension in [('windows-x64', 'zip'), ('macos-arm64', 'zip'), ('macos-x86_64', 'zip'), ('macos-arm64-macos26', 'zip'), ('linux-x64', 'AppImage'), ('linux-x64-ubuntu22', 'AppImage'), ('linux-x64-ubuntu26', 'AppImage')]:
-        package = directory / f'BambuStudio-Rotatrix-{platform}-{commit[:12]}.{extension}'
+    for platform, extension in [('windows-x64', 'zip'), ('macos-arm64', 'tar.gz'), ('macos-x86_64', 'tar.gz'), ('macos-arm64-macos26', 'tar.gz'), ('linux-x64', 'AppImage'), ('linux-x64-ubuntu22', 'AppImage'), ('linux-x64-ubuntu26', 'AppImage')]:
+        name = (f'macos-app-{platform.removeprefix("macos-")}-{commit}.{extension}'
+                if platform.startswith('macos-') else
+                f'BambuStudio-Rotatrix-{platform}-{commit[:12]}.{extension}')
+        package = directory / name
         checksum = package.with_name(package.name + '.sha256')
         manifest = package.with_name(package.name + '.json')
         if not package.is_file() or package.stat().st_size == 0:

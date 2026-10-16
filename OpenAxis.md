@@ -86,3 +86,37 @@ The installed application is `build/BambuStudio/bambu-studio.exe`. The build
 stage runs the viewport tests and launches the installed application with
 `--help` as a loader smoke check. It does not exercise a connected Rotatrix
 or interactive GUI navigation.
+## Local macOS build and package
+
+Use the workspace's CMake 3.31.6 on the build process PATH; do not change global
+compiler or tool defaults. The upstream scripts retain their persistent
+`deps/build/<arch>` and `build/<arch>` directories. For example, from this checkout:
+
+```sh
+export PATH="/Users/dliu/code/oss-forks/tools/cmake/3.31.6/bin:$PATH"
+export OPENAXIS_MAC_ARCH=arm64 CMAKE_BUILD_PARALLEL_LEVEL=1
+bash .github/scripts/openaxis-unix.sh macos deps
+bash .github/scripts/openaxis-unix.sh macos build
+python3 .github/scripts/openaxis-package.py macos-arm64
+```
+
+The installed build bundle is `build/arm64/BambuStudio/BambuStudio.app` (substitute
+`x86_64` for Intel). The packaging step adds SDK license notices before ad-hoc
+signing, archives exactly `BambuStudio.app` in
+`dist/macos-app-<variant>-<full-source-SHA>.tar.gz`, then extracts the archive,
+verifies its signature and runs the extracted executable with `--help`.
+Executable permissions and internal symlinks are preserved. The bundle name,
+`com.bambulab.bambu-studio` identifier, and upstream preference locations remain
+unchanged. Test the extracted app without replacing a running upstream app.
+
+CI uploads the tar.gz directly with no outer ZIP. Checksums/source metadata and
+build logs are separate artifacts; the release validator downloads these alongside
+the archive. This transport change does not add distribution signing, notarization
+or release publication. Intel, ARM64/macOS 15 and ARM64/macOS 26 variants remain.
+
+Packaging contract checks (no signing identity required):
+
+```sh
+python3 -B tests/openaxis/test_release.py
+python3 -B tests/openaxis/test_macos_package.py
+```

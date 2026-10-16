@@ -28,7 +28,10 @@ class ReleaseGuards(unittest.TestCase):
             for platform in ['windows-x64', 'macos-arm64', 'macos-x86_64', 'macos-arm64-macos26',
                              'linux-x64', 'linux-x64-ubuntu22', 'linux-x64-ubuntu26']:
                 ext = 'AppImage' if platform.startswith('linux') else 'zip'
-                p = folder / f'BambuStudio-Rotatrix-{platform}-{commit[:12]}.{ext}'
+                name = (f'macos-app-{platform.removeprefix("macos-")}-{commit}.tar.gz'
+                        if platform.startswith('macos-') else
+                        f'BambuStudio-Rotatrix-{platform}-{commit[:12]}.{ext}')
+                p = folder / name
                 p.write_bytes(b'package fixture')
                 digest = hashlib.sha256(p.read_bytes()).hexdigest()
                 p.with_name(p.name + '.sha256').write_text(f'{digest}  {p.name}\n')

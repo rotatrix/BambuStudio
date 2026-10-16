@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 
 platform = sys.argv[1]
 is_mac = platform.startswith('macos-')
@@ -42,8 +43,18 @@ if platform == 'windows-x64':
     build = Path('build')
 elif is_mac:
     source = mac_app
-    package = dist / (name + '.zip')
-    subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(source), str(package)], check=True)
+    package = dist / f'macos-app-{platform.removeprefix("macos-")}-{commit}.tar.gz'
+    subprocess.run(['tar', '-czf', str(package), '-C', str(source.parent), source.name],
+                   env={**os.environ, 'COPYFILE_DISABLE': '1'}, check=True)
+    # Test the transported bundle, including executable modes and internal links.
+    with tempfile.TemporaryDirectory(prefix='bambu-package-') as temporary:
+        subprocess.run(['tar', '-xzf', str(package.resolve()), '-C', temporary], check=True)
+        extracted = Path(temporary) / source.name
+        if list(Path(temporary).iterdir()) != [extracted]:
+            raise SystemExit('macOS archive must contain only BambuStudio.app')
+        subprocess.run(['codesign', '--verify', '--deep', '--strict', str(extracted)], check=True)
+        subprocess.run([str(extracted / 'Contents/MacOS/BambuStudio'), '--help'],
+                       check=True, timeout=120)
     build = Path(f'build/{mac_arch}')
 elif is_linux:
     images = list(Path('build').glob('BambuStudio_ubu64.AppImage'))

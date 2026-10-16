@@ -61,9 +61,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: BambuStudio-Rotatrix-*-${{ github.sha }}
+          merge-multiple: true
+          path: release-assets
+      - name: Download macOS app archives
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: macos-app-*-${{ github.sha }}.tar.gz
           merge-multiple: true
           path: release-assets
       - name: Validate packages and create draft

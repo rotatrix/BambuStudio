@@ -133,3 +133,49 @@ Packaging contract checks (no signing identity required):
 python3 -B tests/openaxis/test_release.py
 python3 -B tests/openaxis/test_macos_package.py
 ```
+
+### macOS dependency isolation
+
+The macOS build selects Apple's OpenGL framework explicitly so an installed
+XQuartz does not supply the application's OpenGL library. The dependency build
+pins OpenEXR 2.5.5; application configuration disables discovery of the unrelated
+Imath 3 package and uses the built IlmBase instead. This does not disable OpenVDB:
+OpenVDB 8.2.0 and its static library remain enabled from the same dependency prefix.
+The equivalent local configure options are:
+
+```sh
+-DCMAKE_DISABLE_FIND_PACKAGE_Imath=ON
+-DOPENGL_gl_LIBRARY="$(xcrun --sdk macosx --show-sdk-path)/System/Library/Frameworks/OpenGL.framework"
+```
+
+On hosts with Homebrew zstd, Boost iostreams can retain a shared zstd dependency.
+After upstream bundle assembly, packaging uses CMake's `BundleUtilities` to copy
+it into `Contents/Frameworks`, rewrite load paths, and verify runtime closure.
+Its installed BSD license is copied into Resources before signing. Unexpected
+external runtime dependencies fail packaging for license/bundling review. The
+extracted archive is still signature-verified and smoke-tested. This supplements
+the upstream app assembly, which contains no runtime-dylib fixup step.
+
+Static macOS builds also restrict GLEW config discovery to `CMAKE_PREFIX_PATH`
+before the existing module fallback. Homebrew's GLEW config can embed framework
+paths from a different SDK, causing Objective-C++ compilation to mix SDK headers.
+When reusing a cache that already selected Homebrew GLEW, clear it once with
+`-UGLEW_DIR`. The built `libGLEW.a` and include directory should resolve inside
+the dependency prefix. This retains Retina support and availability warnings.
+
+Lacroix validation environment: macOS 15.7.4 arm64, Xcode 26.3/Apple clang 17,
+macOS SDK 26.2, CMake 3.31.6, Ninja 1.13.1, Release deployment target 11.3.
+Dependencies were built with one worker; application validation used up to three
+as competing builds subsided. No global toolchain defaults were changed.
+
+The wxWidgets link list is filtered on macOS to remove XQuartz GL/GLU entries;
+the existing Apple OpenGL framework supplies those APIs. Assimp uses its bundled
+unzip implementation with system zlib, avoiding host minizip discovery while
+retaining the upstream OBJ, FBX and glTF importer set.
+
+Local validation completed on the above Lacroix environment: full arm64 build,
+OpenAxis controller and Retina compilation, overlay test, runtime dependency
+closure, ad-hoc signature verification, and extracted archive `--help` smoke.
+The only non-system dylib is the bundled zstd. GUI/physical-device acceptance,
+Intel builds, macOS 26 host testing, and downloaded CI artifact testing remain
+separate checks; this local build does not establish them.

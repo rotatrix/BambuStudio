@@ -38,6 +38,9 @@ class MacPackage(unittest.TestCase):
             smoked = []
 
             def execute(command, **kwargs):
+                if command[0] == 'cmake':
+                    # Real Mach-O bundling is exercised on the compiled app.
+                    return subprocess.CompletedProcess(command, 0)
                 if command[0] == 'codesign':
                     bundle = Path(command[-1])
                     self.assertTrue((bundle / 'Contents/Resources/BambuStudio-LICENSE.txt').is_file())

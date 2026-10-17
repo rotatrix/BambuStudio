@@ -12,7 +12,8 @@ endif()
 # `fdopen` prototype in <stdio.h> and breaks the build. On macOS use the system
 # zlib (already found by find_package(ZLIB) in deps-unix-common) instead.
 if(APPLE)
-    set(_assimp_build_zlib "-DASSIMP_BUILD_ZLIB=OFF")
+    # Keep unzip in the dependency build instead of importing a host minizip.
+    set(_assimp_build_zlib "-DASSIMP_BUILD_ZLIB=OFF" "-DASSIMP_BUILD_MINIZIP=ON")
 else()
     set(_assimp_build_zlib "-DASSIMP_BUILD_ZLIB=ON")
 endif()

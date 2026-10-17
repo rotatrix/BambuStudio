@@ -64,7 +64,13 @@ This module defines the following variables:
 
 include(FindPackageHandleStandardArgs)
 
-find_package(GLEW CONFIG QUIET)
+# Prefer the configured dependency prefix for static macOS builds. A Homebrew
+# config may embed framework paths from a different Xcode/Command Line Tools SDK.
+if(APPLE AND GLEW_USE_STATIC_LIBS)
+  find_package(GLEW CONFIG QUIET PATHS ${CMAKE_PREFIX_PATH} NO_DEFAULT_PATH)
+else()
+  find_package(GLEW CONFIG QUIET)
+endif()
 
 if(GLEW_FOUND)
   find_package_handle_standard_args(GLEW DEFAULT_MSG GLEW_CONFIG)

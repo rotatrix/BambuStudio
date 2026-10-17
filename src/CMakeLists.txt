@@ -97,6 +97,11 @@ if (SLIC3R_GUI)
     # wrong libs for opengl in the link line and it does not link to it by himself.
     # libslic3r_gui will link to opengl anyway, so lets override wx
     list(FILTER wxWidgets_LIBRARIES EXCLUDE REGEX OpenGL)
+    if(APPLE)
+        # wx-config can retain XQuartz flags from dependency discovery. The GUI
+        # links Apple's OpenGL framework, which supplies both GL and GLU.
+        list(FILTER wxWidgets_LIBRARIES EXCLUDE REGEX "(^-lGL(U)?$|(^|/)libGL(U)?[.]dylib$)")
+    endif()
 
 #    list(REMOVE_ITEM wxWidgets_LIBRARIES oleacc)
     message(STATUS "wx libs: ${wxWidgets_LIBRARIES}")

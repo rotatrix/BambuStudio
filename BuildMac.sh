@@ -159,6 +159,8 @@ function build_slicer() {
                     -G "${SLICER_CMAKE_GENERATOR}" \
                     -DBBL_RELEASE_TO_PUBLIC=1 \
                     -DSLIC3R_OPENAXIS="${SLIC3R_OPENAXIS:-OFF}" \
+                    -DCMAKE_DISABLE_FIND_PACKAGE_Imath=ON \
+                    -DOPENGL_gl_LIBRARY="$(xcrun --sdk macosx --show-sdk-path)/System/Library/Frameworks/OpenGL.framework" \
                     -DBBL_INTERNAL_TESTING=0 \
                     -DCMAKE_PREFIX_PATH="$DEPS/usr/local" \
                     -DCMAKE_INSTALL_PREFIX="$PWD/BambuStudio" \

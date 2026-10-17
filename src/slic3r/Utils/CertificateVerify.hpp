@@ -29,6 +29,11 @@ namespace Slic3r {
         }
     };
 
+#ifdef __APPLE__
+    enum class BambuModule { Networking, Source };
+    bool VerifyBambuModule(const std::string& path, BambuModule module);
+#endif
+
     bool IsSamePublisher(const SignerSummary& a, const SignerSummary& b);
 
     std::optional<SignerSummary> SummarizeSelf();

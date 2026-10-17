@@ -251,6 +251,13 @@ int NetworkAgent::initialize_network_module(bool using_backup, bool validate_cer
     library = plugin_folder.string() + "/" + std::string("lib") + std::string(BAMBU_NETWORK_LIBRARY) + ".so";
     #endif
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", line %1%, loading network module, using_backup %2%\n")%__LINE__ %using_backup;
+#if defined(__WXMAC__)
+    if (!VerifyBambuModule(library, BambuModule::Networking)) {
+        BOOST_LOG_TRIVIAL(error) << "Bambu networking plugin signature verification failed";
+        return -1;
+    }
+    networking_module = dlopen(library.c_str(), RTLD_LAZY);
+#else
     module_cert_summary = SummarizeModule(library);
     if (self_cert_summary) {
         module_cert_summary = SummarizeModule(library);
@@ -265,6 +272,7 @@ int NetworkAgent::initialize_network_module(bool using_backup, bool validate_cer
     }
     else
         networking_module = dlopen( library.c_str(), RTLD_LAZY);
+#endif
     if (!networking_module) {
         char* dll_error = dlerror();
         std::string err       = dll_error ? std::string(dll_error) : std::string("(null)");
@@ -567,6 +575,12 @@ void* NetworkAgent::get_bambu_source_entry()
     library = plugin_folder.string() + "/" + std::string("lib") + std::string(BAMBU_SOURCE_LIBRARY) + ".dylib";
 #else
     library = plugin_folder.string() + "/" + std::string("lib") + std::string(BAMBU_SOURCE_LIBRARY) + ".so";
+#endif
+#if defined(__WXMAC__)
+    if (!VerifyBambuModule(library, BambuModule::Source)) {
+        BOOST_LOG_TRIVIAL(error) << "Bambu source plugin signature verification failed";
+        return nullptr;
+    }
 #endif
     source_module = dlopen( library.c_str(), RTLD_LAZY);
     /*if (!source_module) {

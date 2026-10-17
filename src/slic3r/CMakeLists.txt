@@ -675,6 +675,7 @@ set(SLIC3R_GUI_SOURCES
     Utils/FileTransferObject.hpp
     Utils/CertificateVerify.hpp
     Utils/CertificateVerify.cpp
+    Utils/MacPluginVerify.cpp
     Utils/FrameBuffer.hpp
 )
 

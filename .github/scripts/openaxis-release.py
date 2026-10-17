@@ -10,8 +10,7 @@ from urllib.parse import quote
 
 REPO = 'rotatrix/BambuStudio'
 WORKFLOW = '.github/workflows/openaxis-build.yml'
-PLATFORMS = ('windows-x64', 'macos-arm64', 'macos-x86_64', 'macos-arm64-macos26',
-             'linux-x64', 'linux-x64-ubuntu22', 'linux-x64-ubuntu26')
+PLATFORMS = ('windows-x64', 'macos-arm64', 'macos-x86_64', 'linux-x64')
 TAG = re.compile(r'(v02\.08\.02\.61)-rotatrix\.[1-9][0-9]*(?:-beta\.[1-9][0-9]*)?\Z')
 
 
@@ -129,7 +128,7 @@ def draft(directory):
         require(digest(path) == record['sha256'], 'Staged package changed')
         files.append(path)
     signed = sorted((directory / 'signed').glob('*.tar.gz'))
-    require(len(signed) == 3, 'Expected all three signed macOS variants')
+    require(len(signed) == 2, 'Expected both signed macOS architectures')
     files += signed
     sums = directory / 'SHA256SUMS'
     sums.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in files))

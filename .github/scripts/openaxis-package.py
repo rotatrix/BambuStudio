@@ -28,7 +28,8 @@ for filename, source in [('OpenAxis-LICENSE.txt', sdk_source / 'LICENSE'),
 if is_linux:
     subprocess.run(['bash', './src/BuildLinuxImage.sh', '-i'], cwd='build', check=True)
 elif is_mac:
-    subprocess.run(['cmake', f'-DAPP={mac_app.resolve()}',
+    subprocess.run(['cmake', f'-DAPP={mac_app.resolve()}', f'-DARCH={mac_arch}',
+                    '-DMIN_MACOS=10.15' if mac_arch == 'x86_64' else '-DMIN_MACOS=11.3',
                     '-P', '.github/scripts/macos-bundle.cmake'], check=True)
     shutil.copy2('LICENSE', mac_app / 'Contents/Resources/BambuStudio-LICENSE.txt')
     app = str(mac_app)

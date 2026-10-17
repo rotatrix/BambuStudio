@@ -148,10 +148,14 @@ The equivalent local configure options are:
 -DOPENGL_gl_LIBRARY="$(xcrun --sdk macosx --show-sdk-path)/System/Library/Frameworks/OpenGL.framework"
 ```
 
-On hosts with Homebrew zstd, Boost iostreams can retain a shared zstd dependency.
-After upstream bundle assembly, packaging uses CMake's `BundleUtilities` to copy
-it into `Contents/Frameworks`, rewrite load paths, and verify runtime closure.
-Its installed BSD license is copied into Resources before signing. Unexpected
+The macOS dependency pipeline pins zstd 1.5.7 from its checksum-verified official
+source archive. It builds shared zstd with multithreading for the original targets:
+arm64 macOS 11.3 and x86_64 macOS 10.15. Boost, OpenVDB and the app explicitly use
+that architecture's dependency prefix, including when reusing caches that formerly
+selected Homebrew. After upstream bundle assembly, packaging uses CMake's
+`BundleUtilities` to copy zstd into `Contents/Frameworks`, rewrite load paths, and
+verify runtime closure. Its installed BSD license is copied from
+`share/licenses/zstd/LICENSE` into Resources before signing. Unexpected
 external runtime dependencies fail packaging for license/bundling review. The
 extracted archive is still signature-verified and smoke-tested. This supplements
 the upstream app assembly, which contains no runtime-dylib fixup step.
@@ -179,3 +183,11 @@ closure, ad-hoc signature verification, and extracted archive `--help` smoke.
 The only non-system dylib is the bundled zstd. GUI/physical-device acceptance,
 Intel builds, macOS 26 host testing, and downloaded CI artifact testing remain
 separate checks; this local build does not establish them.
+
+Packaging inspects every bundled Mach-O executable and dylib with `vtool` for the
+selected architecture before signing. A minimum OS newer than the variant's target
+fails packaging. `tests/openaxis/test_macos_deployment.py` exercises acceptance and
+rejection using real compiled Mach-O fixtures. This catches the former Homebrew
+bottle dependency (macOS 15 minimum) even when loader smoke succeeds on the host.
+Lacroix also cross-built the pinned x86_64 zstd and verified minos 10.15; that is a
+library/architecture audit, not a full Intel app or macOS 10.15 runtime test.

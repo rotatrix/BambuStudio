@@ -160,6 +160,7 @@ function build_slicer() {
                     -DBBL_RELEASE_TO_PUBLIC=1 \
                     -DSLIC3R_OPENAXIS="${SLIC3R_OPENAXIS:-OFF}" \
                     -DCMAKE_DISABLE_FIND_PACKAGE_Imath=ON \
+                    -Dzstd_DIR:PATH="$DEPS/usr/local/lib/cmake/zstd" \
                     -DOPENGL_gl_LIBRARY="$(xcrun --sdk macosx --show-sdk-path)/System/Library/Frameworks/OpenGL.framework" \
                     -DBBL_INTERNAL_TESTING=0 \
                     -DCMAKE_PREFIX_PATH="$DEPS/usr/local" \

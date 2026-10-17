@@ -230,6 +230,14 @@ if (DEP_BUILD_LIBHARU)
     set(LIBHARU_PKG dep_libharu)
 endif ()
 
+set(ZSTD_PKG "")
+set(ZSTD_CMAKE_ARGS "")
+if(APPLE)
+    include(Zstd/Zstd.cmake)
+    set(ZSTD_PKG dep_Zstd)
+    set(ZSTD_CMAKE_ARGS "-Dzstd_DIR:PATH=${DESTDIR}/usr/local/lib/cmake/zstd")
+endif()
+
 set(DEP_Boost_COMPONENTS system iostreams filesystem thread log locale regex date_time)
 set(BOOST_PKG "")
 if (DEP_BUILD_BOOST) 
@@ -304,6 +312,7 @@ if (DEP_BUILD_FFMPEG)
 endif ()
 
 set(_dep_list
+    ${ZSTD_PKG}
     ${BOOST_PKG}
     dep_TBB
     ${CURL_PKG}

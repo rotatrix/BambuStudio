@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 # Run after upstream app/resource assembly and before signing. Boost iostreams
-# may pick up Homebrew's shared zstd even when the application deps are static.
+# links the shared zstd built by the macOS dependency pipeline.
 include(BundleUtilities)
 get_bundle_keys("${APP}" "" "" keys)
 foreach(key IN LISTS keys)
@@ -13,7 +13,7 @@ foreach(key IN LISTS keys)
         endif()
         if(source MATCHES "/libzstd[^/]*\\.dylib$")
             get_filename_component(libdir "${source}" DIRECTORY)
-            set(license "${libdir}/../LICENSE")
+            set(license "${libdir}/../share/licenses/zstd/LICENSE")
             if(NOT EXISTS "${license}")
                 message(FATAL_ERROR "Missing zstd license alongside ${source}")
             endif()
@@ -25,3 +25,5 @@ foreach(key IN LISTS keys)
 endforeach()
 clear_bundle_keys(keys)
 fixup_bundle("${APP}" "" "")
+
+include("${CMAKE_CURRENT_LIST_DIR}/macos-audit.cmake")

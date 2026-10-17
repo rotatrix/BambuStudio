@@ -1,92 +1,154 @@
-"""Stage an immutable version-tag release from verified artifacts; never release branch builds."""
+"""Verify and stage exact CI outputs. No compilation or package rewriting."""
+import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
-import sys
-import tempfile
+from urllib.parse import quote
+
+REPO = 'rotatrix/BambuStudio'
+WORKFLOW = '.github/workflows/openaxis-build.yml'
+PLATFORMS = ('windows-x64', 'macos-arm64', 'macos-x86_64', 'macos-arm64-macos26',
+             'linux-x64', 'linux-x64-ubuntu22', 'linux-x64-ubuntu26')
+TAG = re.compile(r'(v02\.08\.02\.61)-rotatrix\.[1-9][0-9]*(?:-beta\.[1-9][0-9]*)?\Z')
 
 
-def validate_assets(directory, commit, run_id):
-    if not re.fullmatch(r'[0-9a-f]{40}', commit):
-        raise ValueError('Invalid source commit')
-    assets = []
-    sdk_commits = set()
-    for platform, extension in [('windows-x64', 'zip'), ('macos-arm64', 'tar.gz'), ('macos-x86_64', 'tar.gz'), ('macos-arm64-macos26', 'tar.gz'), ('linux-x64', 'AppImage'), ('linux-x64-ubuntu22', 'AppImage'), ('linux-x64-ubuntu26', 'AppImage')]:
-        name = (f'macos-app-{platform.removeprefix("macos-")}-{commit}.{extension}'
-                if platform.startswith('macos-') else
-                f'BambuStudio-Rotatrix-{platform}-{commit[:12]}.{extension}')
-        package = directory / name
-        checksum = package.with_name(package.name + '.sha256')
-        manifest = package.with_name(package.name + '.json')
-        if not package.is_file() or package.stat().st_size == 0:
-            raise ValueError(f'Missing package: {package}')
-        with package.open('rb') as stream:
-            digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-        if checksum.read_text().split() != [digest, package.name]:
-            raise ValueError(f'Checksum mismatch: {package}')
-        data = json.loads(manifest.read_text())
-        expected = dict(commit=commit, run_id=run_id, platform=platform, file=package.name, sha256=digest)
-        if any(data.get(k) != v for k, v in expected.items()):
-            raise ValueError(f'Provenance mismatch: {package}')
-        sdk = data.get('openaxis_commit', '')
-        if not re.fullmatch(r'[0-9a-f]{40}', sdk):
-            raise ValueError('Invalid SDK revision')
-        sdk_commits.add(sdk)
-        assets.extend([str(package), str(checksum), str(manifest)])
-    if len(sdk_commits) != 1:
-        raise ValueError('Platforms used different SDK revisions')
-    return assets
+def require(value, message):
+    if not value:
+        raise ValueError(message)
 
 
-def release_tag(tag, ref_type):
-    match = re.fullmatch(r'(v02\.08\.02\.61)-rotatrix\.([1-9][0-9]*)(-beta\.[1-9][0-9]*)?', tag)
-    if ref_type != 'tag' or not match:
-        raise ValueError('Expected <upstream-tag>-rotatrix.N or <upstream-tag>-rotatrix.N-beta.N')
-    return match.group(1), bool(match.group(3))
+def api(path):
+    return json.loads(subprocess.check_output(['gh', 'api', f'repos/{REPO}/{path}'], text=True))
 
 
-def main():
-    commit, run_id, repo = (os.environ[k] for k in ['GITHUB_SHA', 'GITHUB_RUN_ID', 'GH_REPO'])
-    tag = os.environ['GITHUB_REF_NAME']
-    upstream, prerelease = release_tag(tag, os.environ['GITHUB_REF_TYPE'])
-    resolved = subprocess.check_output(['git', 'rev-parse', f'{tag}^{{commit}}'], text=True).strip()
-    if resolved != commit:
-        raise ValueError('Release tag does not identify the built commit')
-    subprocess.run(['git', 'merge-base', '--is-ancestor', upstream, commit], check=True)
-    if not prerelease:
-        # Final versions must come from a maintained branch, never disposable work.
-        subprocess.run(['git', 'fetch', 'origin', f'refs/heads/rotatrix/{upstream}'], check=True)
-        subprocess.run(['git', 'merge-base', '--is-ancestor', commit, 'FETCH_HEAD'], check=True)
-    assets = validate_assets(Path(sys.argv[1]), commit, run_id)
-    pages = json.loads(subprocess.check_output(
-        ['gh', 'api', '--paginate', '--slurp', f'repos/{repo}/releases'], text=True))
-    if any(release['tag_name'] == tag for page in pages for release in page):
-        raise ValueError('Release already exists; immutable releases must not be overwritten')
-    notes = f"""BambuStudio {upstream} — Rotatrix Build (unofficial)
+def pages(path, key):
+    result = []
+    for page in range(1, 101):
+        rows = api(f'{path}{"&" if "?" in path else "?"}per_page=100&page={page}')[key]
+        result.extend(rows)
+        if len(rows) < 100:
+            return result
+    raise ValueError('Unexpected pagination limit')
 
-Source: {commit}
-CI: https://github.com/{repo}/actions/runs/{run_id}
 
-Windows x64, macOS Intel/Apple Silicon, and Ubuntu 22.04/24.04/26.04 packages
-include SHA256 checksums and source manifests from the same workflow run.
+def tag_commit(tag):
+    obj = api('git/ref/tags/' + quote(tag, safe=''))['object']
+    for _ in range(8):
+        if obj['type'] == 'commit':
+            return obj['sha']
+        require(obj['type'] == 'tag', 'Tag does not identify a commit')
+        obj = api('git/tags/' + obj['sha'])['object']
+    raise ValueError('Excessively nested tag')
 
-This draft requires release review before publication. These builds are unsigned
-on Windows and ad-hoc signed on macOS. Final releases require distribution signing
-and notarization where applicable, plus GUI and Rotatrix hardware validation.
-Do not publish an unsigned draft as a final release.
-"""
-    with tempfile.TemporaryDirectory() as temp:
-        path = Path(temp) / 'notes.md'
-        path.write_text(notes, encoding='utf-8')
-        command = ['gh', 'release', 'create', tag, *assets, '--verify-tag', '--draft',
-                   '--title', f'BambuStudio {tag}', '--notes-file', str(path)]
-        if prerelease:
-            command.append('--prerelease')
-        subprocess.run(command, check=True)
+
+def validate_run(run, sha):
+    require(run['repository']['full_name'] == REPO and run['head_repository']['full_name'] == REPO,
+            'Build must originate in rotatrix/BambuStudio')
+    require(run['path'] == WORKFLOW, 'Unapproved build workflow')
+    require(run['event'] == 'workflow_dispatch' and
+            re.fullmatch(r'rotatrix/[A-Za-z0-9._/-]+', run.get('head_branch') or ''),
+            'Only trusted Rotatrix branch builds can be promoted; PRs are excluded')
+    require(run['head_sha'] == sha, 'Build SHA differs from immutable tag')
+    require(run['status'] == 'completed' and run['conclusion'] == 'success', 'Build has not succeeded')
+
+
+def expected(sha):
+    return {f'macos-app-{p.removeprefix("macos-")}-{sha}.tar.gz' if p.startswith('macos-')
+            else f'BambuStudio-Rotatrix-{p}-{sha[:12]}.{"zip" if p == "windows-x64" else "AppImage"}'
+            for p in PLATFORMS}
+
+
+def digest(path):
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def require_new_release(tag):
+    existing = json.loads(subprocess.check_output(
+        ['gh', 'api', '--paginate', '--slurp', f'repos/{REPO}/releases?per_page=100'], text=True))
+    require(not any(r['tag_name'] == tag for page in existing for r in page),
+            'Release or draft exists; inspect it before retrying')
+
+
+def prepare(tag, run_id, output):
+    require(not output.exists() or not any(output.iterdir()), 'Use an empty promotion directory')
+    match = TAG.fullmatch(tag)
+    require(match, 'Invalid Bambu Studio release tag')
+    require_new_release(tag)
+    sha = tag_commit(tag)
+    base = tag_commit(match[1])
+    require(api(f'compare/{base}...{sha}')['status'] in ('ahead', 'identical'),
+            'Release does not descend from the upstream tag')
+    require(run_id and run_id > 0, 'Select an explicit build run ID')
+    run = api(f'actions/runs/{run_id}')
+    validate_run(run, sha)
+    jobs = pages(f'actions/runs/{run_id}/jobs?filter=latest', 'jobs')
+    required = set(PLATFORMS)
+    require(required <= {j['name'] for j in jobs if j['conclusion'] == 'success'},
+            'Missing required platform checks; focused-only runs cannot be promoted alone')
+    artifacts = pages(f'actions/runs/{run_id}/artifacts', 'artifacts')
+    selected = [a for a in artifacts if a['name'] in expected(sha)]
+    require(len(selected) == len(expected(sha)) and {a['name'] for a in selected} == expected(sha),
+            'Missing or duplicate required packages')
+    output.mkdir(parents=True, exist_ok=True)
+    records = []
+    for artifact in selected:
+        require(not artifact['expired'] and artifact['workflow_run']['id'] == run_id and
+                artifact['workflow_run']['head_sha'] == sha, 'Expired or mismatched artifact')
+        require(re.fullmatch(r'sha256:[0-9a-f]{64}', artifact.get('digest') or ''), 'Artifact has no digest')
+        path = output / artifact['name']
+        with path.open('wb') as stream:
+            subprocess.run(['gh', 'api', f'repos/{REPO}/actions/artifacts/{artifact["id"]}/zip'],
+                           stdout=stream, check=True)
+        require('sha256:' + digest(path) == artifact['digest'], 'Downloaded artifact digest mismatch')
+        records.append(dict(id=artifact['id'], name=path.name, sha256=digest(path)))
+    prerelease = '-beta.' in tag
+    require(tag_commit(tag) == sha, 'Tag changed during verification')
+    plan = dict(repository=REPO, tag=tag, commit=sha, run_id=run_id, run_attempt=run['run_attempt'],
+                source_ref='refs/heads/' + run['head_branch'], prerelease=prerelease,
+                artifacts=records)
+    (output / 'promotion.json').write_text(json.dumps(plan, indent=2) + '\n')
+    with open(os.environ.get('GITHUB_OUTPUT', os.devnull), 'a') as stream:
+        stream.write('mac-artifacts=' + ','.join(str(r['id']) for r in records if r['name'].startswith('macos-app-')) + '\n')
+    return plan
+
+
+def draft(directory):
+    plan = json.loads((directory / 'promotion.json').read_text())
+    require(plan['repository'] == REPO and TAG.fullmatch(plan['tag']), 'Invalid release selection')
+    require(tag_commit(plan['tag']) == plan['commit'], 'Tag moved before draft creation')
+    require_new_release(plan['tag'])
+    files = []
+    for record in plan['artifacts']:
+        if record['name'].startswith('macos-app-'):
+            continue
+        path = directory / record['name']
+        require(digest(path) == record['sha256'], 'Staged package changed')
+        files.append(path)
+    signed = sorted((directory / 'signed').glob('*.tar.gz'))
+    require(len(signed) == 3, 'Expected all three signed macOS variants')
+    files += signed
+    sums = directory / 'SHA256SUMS'
+    sums.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in files))
+    command = ['gh', 'release', 'create', plan['tag'], *map(str, files), str(sums),
+               '--repo', REPO, '--verify-tag', '--draft', '--title', 'Bambu Studio ' + plan['tag'],
+               '--notes', f'Source: {plan["commit"]}\nBuild: https://github.com/{REPO}/actions/runs/{plan["run_id"]}']
+    if plan['prerelease']:
+        command.append('--prerelease')
+    subprocess.run(command, check=True)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('command', choices=['prepare', 'draft'])
+    parser.add_argument('--tag')
+    parser.add_argument('--run-id', type=int)
+    parser.add_argument('--directory', type=Path, default=Path('promotion'))
+    args = parser.parse_args()
+    if args.command == 'prepare':
+        print(json.dumps(prepare(args.tag, args.run_id, args.directory), indent=2))
+    else:
+        draft(args.directory)

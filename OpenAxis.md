@@ -18,7 +18,7 @@ native camera changes are reconciled with the session.
 
 Picks use BambuStudio mesh-raycasting helpers with scene-scoped owned mesh snapshots, without changing native hover state. Plate top surfaces participate in ordinary picks; toolbar icons and gizmos do not. Selection picks use selected model volumes. Plate shapes already include their world placement.
 
-Help > OpenAxis Diagnostics opens a compact connection, focus, and gesture panel.
+View > OpenAxis Diagnostics opens a compact connection, focus, and gesture panel.
 Viewport evidence is enabled while the panel is open; the pivot remains visible
 independently. Logs are available in the external Rotatrix log viewer.
 
@@ -36,41 +36,6 @@ ctest --test-dir build_openaxis_checks -C Release --output-on-failure
 In a GUI build, verify rotation, pan, zoom, native mouse input after navigation,
 plate switching, selection-only picking, and focus loss in Prepare and Preview.
 Open and close the diagnostics panel and confirm viewport evidence follows it.
-
-## Fork lifecycle and CI
-
-Current development branch: `rotatrix/work/v02.08.02.61`. It is disposable work,
-not a maintained release. No maintained branch or release tag has been created.
-The work branch is temporarily the GitHub default so its CI and documentation
-are visible. Promote a cleaned patch stack to `rotatrix/v02.08.02.61` when ready,
-and then set that maintained branch as the default. Preserve its history after
-publication; contributors target the applicable maintained branch.
-
-The upstream `build_all.yml` remains the CI entry point and retains its upstream
-jobs. Rotatrix refs call `openaxis-build.yml`, adapting the upstream build scripts
-and packaging with OpenAxis enabled. The adapter retains the validated VS 2022
-compiler for this release and pins CMake 3.31.6. It builds Windows x64, Intel and
-ARM64 macOS (macOS 15 and 26 runners), and Ubuntu 22.04, 24.04, and 26.04 x64.
-Dependency caches are isolated by platform and dependency-source hash.
-
-Pushes to `rotatrix/**` and PRs into `rotatrix/*` run build, viewport tests, and
-package smoke checks. Artifacts include the full source SHA in their names and
-expire after 14 days. Manual runs can select an OS family. Normal builds never
-create tags or GitHub releases.
-
-Only pushes of `*-rotatrix.*` tags enter the release job. For this upstream base,
-use `v02.08.02.61-rotatrix.N` or `v02.08.02.61-rotatrix.N-beta.N`. Tags are immutable;
-existing release assets are never replaced. Final tags must identify a commit on
-`rotatrix/v02.08.02.61`; beta tags may identify tested development work. The gate
-verifies every package checksum, source SHA, SDK SHA, and workflow run ID before
-staging a draft (beta tags are marked prerelease).
-
-Release readiness is intentionally separate from work-branch CI: distribution
-signing/notarization credentials are not configured. Current Windows artifacts
-are unsigned and macOS artifacts are ad-hoc signed. Before publishing a final
-release, configure signing/notarization, produce the signed distributions, and
-complete GUI/device validation. Do not publish the unsigned draft as a final
-release. The current development setup does not publish releases automatically.
 
 ## Local Windows build
 
@@ -97,8 +62,7 @@ after a checkout/build-directory relocation without an interactive prompt.
 
 Do not reuse a CMake build tree after moving its source checkout. Configure a
 fresh build directory and inspect installed dependency metadata for absolute
-paths before reusing the dependency prefix. The 2026-10-16 Windows preparation
-uses `build_local`, retaining the older `build/BambuStudio` app untouched.
+paths before reusing the dependency prefix.
 ## Local macOS build and package
 
 Use the workspace's CMake 3.31.6 on the build process PATH; do not change global
@@ -106,7 +70,7 @@ compiler or tool defaults. The upstream scripts retain their persistent
 `deps/build/<arch>` and `build/<arch>` directories. For example, from this checkout:
 
 ```sh
-export PATH="/Users/dliu/code/oss-forks/tools/cmake/3.31.6/bin:$PATH"
+export PATH="$OSS_FORKS/tools/cmake/3.31.6/bin:$PATH"
 export OPENAXIS_MAC_ARCH=arm64 CMAKE_BUILD_PARALLEL_LEVEL=1
 bash .github/scripts/openaxis-unix.sh macos deps
 bash .github/scripts/openaxis-unix.sh macos build
@@ -122,10 +86,8 @@ Executable permissions and internal symlinks are preserved. The bundle name,
 `com.bambulab.bambu-studio` identifier, and upstream preference locations remain
 unchanged. Test the extracted app without replacing a running upstream app.
 
-CI uploads the tar.gz directly with no outer ZIP. Checksums/source metadata and
-build logs are separate artifacts; the release validator downloads these alongside
-the archive. This transport change does not add distribution signing, notarization
-or release publication. Intel, ARM64/macOS 15 and ARM64/macOS 26 variants remain.
+CI uploads packages directly, without an outer ZIP. Release preparation promotes
+existing build artifacts and uses the central macOS signing service.
 
 Packaging contract checks (no signing identity required):
 
@@ -167,27 +129,13 @@ When reusing a cache that already selected Homebrew GLEW, clear it once with
 `-UGLEW_DIR`. The built `libGLEW.a` and include directory should resolve inside
 the dependency prefix. This retains Retina support and availability warnings.
 
-Lacroix validation environment: macOS 15.7.4 arm64, Xcode 26.3/Apple clang 17,
-macOS SDK 26.2, CMake 3.31.6, Ninja 1.13.1, Release deployment target 11.3.
-Dependencies were built with one worker; application validation used up to three
-as competing builds subsided. No global toolchain defaults were changed.
-
 The wxWidgets link list is filtered on macOS to remove XQuartz GL/GLU entries;
 the existing Apple OpenGL framework supplies those APIs. Assimp uses its bundled
 unzip implementation with system zlib, avoiding host minizip discovery while
 retaining the upstream OBJ, FBX and glTF importer set.
-
-Local validation completed on the above Lacroix environment: full arm64 build,
-OpenAxis controller and Retina compilation, overlay test, runtime dependency
-closure, ad-hoc signature verification, and extracted archive `--help` smoke.
-The only non-system dylib is the bundled zstd. GUI/physical-device acceptance,
-Intel builds, macOS 26 host testing, and downloaded CI artifact testing remain
-separate checks; this local build does not establish them.
 
 Packaging inspects every bundled Mach-O executable and dylib with `vtool` for the
 selected architecture before signing. A minimum OS newer than the variant's target
 fails packaging. `tests/openaxis/test_macos_deployment.py` exercises acceptance and
 rejection using real compiled Mach-O fixtures. This catches the former Homebrew
 bottle dependency (macOS 15 minimum) even when loader smoke succeeds on the host.
-Lacroix also cross-built the pinned x86_64 zstd and verified minos 10.15; that is a
-library/architecture audit, not a full Intel app or macOS 10.15 runtime test.

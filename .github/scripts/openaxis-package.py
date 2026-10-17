@@ -1,6 +1,5 @@
 """Archive the tested platform package and record its exact source revision."""
 import hashlib
-import json
 import os
 from pathlib import Path
 import shutil
@@ -73,13 +72,7 @@ else:
 cache = (build / 'CMakeCache.txt').read_text()
 if 'SLIC3R_OPENAXIS:BOOL=ON' not in cache:
     raise SystemExit('OpenAxis is not enabled in this build')
-sdk = subprocess.check_output(['git', '-C', str(build / '_deps/openaxis-src'), 'rev-parse', 'HEAD'], text=True).strip()
 with package.open('rb') as stream:
     digest = hashlib.file_digest(stream, 'sha256').hexdigest()
 package.with_name(package.name + '.sha256').write_text(f'{digest}  {package.name}\n')
-package.with_name(package.name + '.json').write_text(json.dumps({
-    'commit': commit, 'openaxis_commit': sdk, 'platform': platform,
-    'file': package.name, 'sha256': digest,
-    'run_id': os.environ.get('GITHUB_RUN_ID'),
-}, indent=2) + '\n')
 print(f'{package}: {digest}')

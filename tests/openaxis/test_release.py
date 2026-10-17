@@ -1,51 +1,109 @@
-"""Release guard checks; never call GitHub or create a release."""
 import hashlib
-import importlib.util
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('release', Path(__file__).resolve().parents[2] / '.github/scripts/openaxis-release.py')
-release = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(release)
+import importlib.util
+spec = importlib.util.spec_from_file_location('promote', Path(__file__).resolve().parents[2] / '.github/scripts/openaxis-release.py')
+promote = importlib.util.module_from_spec(spec)
+sys.modules['promote'] = promote
+spec.loader.exec_module(promote)
+
+SHA = 'a' * 40
 
 
-class ReleaseGuards(unittest.TestCase):
-    def test_tags(self):
-        self.assertEqual(release.release_tag('v02.08.02.61-rotatrix.1', 'tag'), ('v02.08.02.61', False))
-        self.assertEqual(release.release_tag('v02.08.02.61-rotatrix.2-beta.1', 'tag'), ('v02.08.02.61', True))
-        for tag, kind in [('rotatrix/work/v02.08.02.61', 'branch'), ('openaxis-preview-abc', 'tag'),
-                          ('v02.08.02.61-rotatrix.0', 'tag'), ('v02.08.02.61-rotatrix.1', 'branch'),
-                          ('v02.09.00.00-rotatrix.1', 'tag')]:
-            with self.subTest(tag=tag, kind=kind), self.assertRaises(ValueError):
-                release.release_tag(tag, kind)
+def run():
+    return dict(id=42, repository=dict(full_name=promote.REPO),
+                head_repository=dict(full_name=promote.REPO), path=promote.WORKFLOW,
+                event='workflow_dispatch', head_branch='rotatrix/work/v02.08.02.61', head_sha=SHA,
+                status='completed', conclusion='success', run_attempt=2)
 
-    def test_assets_and_provenance(self):
-        commit, sdk, run = 'a' * 40, 'b' * 40, '123'
-        with tempfile.TemporaryDirectory() as temp:
-            folder = Path(temp)
-            for platform in ['windows-x64', 'macos-arm64', 'macos-x86_64', 'macos-arm64-macos26',
-                             'linux-x64', 'linux-x64-ubuntu22', 'linux-x64-ubuntu26']:
-                ext = 'AppImage' if platform.startswith('linux') else 'zip'
-                name = (f'macos-app-{platform.removeprefix("macos-")}-{commit}.tar.gz'
-                        if platform.startswith('macos-') else
-                        f'BambuStudio-Rotatrix-{platform}-{commit[:12]}.{ext}')
-                p = folder / name
-                p.write_bytes(b'package fixture')
-                digest = hashlib.sha256(p.read_bytes()).hexdigest()
-                p.with_name(p.name + '.sha256').write_text(f'{digest}  {p.name}\n')
-                p.with_name(p.name + '.json').write_text(json.dumps(dict(
-                    commit=commit, openaxis_commit=sdk, run_id=run, platform=platform, file=p.name, sha256=digest)))
-            self.assertEqual(len(release.validate_assets(folder, commit, run)), 21)
-            with self.assertRaises(ValueError):
-                release.validate_assets(folder, commit, 'other-run')
-            p.write_bytes(b'tampered')
-            with self.assertRaises(ValueError):
-                release.validate_assets(folder, commit, run)
-            p.unlink()
-            with self.assertRaises(ValueError):
-                release.validate_assets(folder, commit, run)
+
+class PromotionChecks(unittest.TestCase):
+    def test_trusted_branch_and_manual_build(self):
+        for event in ('workflow_dispatch',):
+            candidate = run()
+            candidate['event'] = event
+            promote.validate_run(candidate, SHA)
+
+    def test_reject_wrong_origin_workflow_event_ref_sha_or_status(self):
+        for key, value in (
+            ('repository', dict(full_name='someone/meshlab')),
+            ('head_repository', dict(full_name='someone/meshlab')),
+            ('path', '.github/workflows/untrusted.yml'), ('event', 'pull_request'),
+            ('head_branch', 'main'), ('head_sha', 'b' * 40),
+            ('status', 'in_progress'), ('conclusion', 'failure')):
+            candidate = run()
+            candidate[key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                promote.validate_run(candidate, SHA)
+
+    def test_all_required_platform_records_and_packages(self):
+        names = promote.expected(SHA)
+        self.assertEqual(len(names), 7)
+        self.assertFalse(any(n.startswith('build-') for n in names))
+        self.assertFalse(any('installer' in n or 'double' in n for n in names))
+        self.assertFalse(any('linux-arm64' in n or 'sources-' in n for n in names))
+        self.assertTrue(all(len(n) < 100 and '/' not in n for n in names))
+
+    def test_prepare_downloads_exact_packages_and_rejects_tampering(self):
+        payloads = {name: name.encode() for name in promote.expected(SHA)}
+        artifacts = [dict(id=i, name=name, expired=False,
+                          workflow_run=dict(id=42, head_sha=SHA),
+                          digest='sha256:' + hashlib.sha256(data).hexdigest())
+                     for i, (name, data) in enumerate(payloads.items(), 1)]
+        jobs = [dict(name=p, conclusion='success') for p in promote.PLATFORMS]
+        for tamper in (False, True):
+            def download(command, stdout, **kwargs):
+                artifact_id = int(command[-1].split('/')[-2])
+                stdout.write(payloads[artifacts[artifact_id - 1]['name']] + (b'changed' if tamper else b''))
+            with tempfile.TemporaryDirectory() as root, \
+                    patch('promote.require_new_release'), patch('promote.tag_commit', return_value=SHA), \
+                    patch('promote.api', side_effect=[{'status': 'identical'}, run()]), \
+                    patch('promote.pages', side_effect=[jobs, artifacts]), \
+                    patch('promote.subprocess.run', side_effect=download):
+                if tamper:
+                    with self.assertRaisesRegex(ValueError, 'digest mismatch'):
+                        promote.prepare('v02.08.02.61-rotatrix.1', 42, Path(root))
+                else:
+                    result = promote.prepare('v02.08.02.61-rotatrix.1', 42, Path(root))
+                    self.assertEqual(result['run_id'], 42)
+                    self.assertEqual(len(result['artifacts']), 7)
+
+    def test_existing_draft_or_public_release_is_rejected(self):
+        for draft in (True, False):
+            with patch('promote.subprocess.check_output', return_value=json.dumps(
+                    [[dict(tag_name='tag', draft=draft)]])), self.assertRaisesRegex(ValueError, 'exists'):
+                promote.require_new_release('tag')
+
+    def test_draft_contains_only_downloads_and_checksums(self):
+        with tempfile.TemporaryDirectory() as root:
+            directory = Path(root)
+            records = []
+            for name in promote.expected(SHA):
+                path = directory / name
+                path.write_bytes(b'app')
+                records.append(dict(name=name, sha256=promote.digest(path)))
+            (directory / 'signed').mkdir()
+            for arch in ('arm64', 'x86_64', 'arm64-macos26'):
+                (directory / 'signed' / f'signed-{arch}.tar.gz').write_bytes(b'signed')
+            plan = dict(repository=promote.REPO, tag='v02.08.02.61-rotatrix.1-beta.1',
+                        commit=SHA, run_id=42, artifacts=records, prerelease=True)
+            (directory / 'promotion.json').write_text(json.dumps(plan))
+            with patch('promote.tag_commit', return_value=SHA), patch('promote.require_new_release'), \
+                    patch('promote.subprocess.run') as command:
+                promote.draft(directory)
+                args = command.call_args.args[0]
+                self.assertIn('--draft', args)
+                self.assertIn('--verify-tag', args)
+                self.assertIn('--prerelease', args)
+                self.assertEqual(len((directory / 'SHA256SUMS').read_text().splitlines()), 7)
+                self.assertFalse(any('macos-app-' in arg or arg.endswith('.json') for arg in args))
+            with patch('promote.tag_commit', return_value='b' * 40), self.assertRaisesRegex(ValueError, 'Tag moved'):
+                promote.draft(directory)
 
 
 if __name__ == '__main__':

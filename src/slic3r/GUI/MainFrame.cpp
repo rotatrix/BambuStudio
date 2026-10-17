@@ -1200,12 +1200,12 @@ void MainFrame::update_title()
     m_title_cache = title;
 #ifdef __WINDOWS__
     if (m_topbar)
-        m_topbar->SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME);
+        m_topbar->SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME + " - Rotatrix (unofficial build)");
     // Also reflect the "*" in the window/taskbar title, which set_project_name builds
     // as "<name> - BambuStudio".
-    SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME);
+    SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME + " - Rotatrix (unofficial build)");
 #else
-    SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME);
+    SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME + " - Rotatrix (unofficial build)");
 #ifdef __APPLE__
     if (!title.IsEmpty())
         update_title_colour_after_set_title();
@@ -2822,12 +2822,6 @@ static wxMenu* generate_help_menu()
             dlg.ShowModal();
         });
 
-#ifdef SLIC3R_OPENAXIS
-    append_menu_item(helpMenu, wxID_ANY, "OpenAxis Diagnostics", "Show OpenAxis navigation diagnostics",
-        [](wxCommandEvent&) {
-            if (auto *canvas = wxGetApp().plater()->get_current_canvas3D()) canvas->toggle_openaxis_diagnostics();
-        });
-#endif
     // About
 #ifndef __APPLE__
     wxString about_title = wxString::Format(_L("&About %s"), SLIC3R_APP_FULL_NAME);
@@ -3305,6 +3299,12 @@ void MainFrame::init_menubar_as_editor()
     if (m_plater) {
         viewMenu = new wxMenu();
         add_common_view_menu_items(viewMenu, this, std::bind(&MainFrame::can_change_view, this));
+#ifdef SLIC3R_OPENAXIS
+        append_menu_item(viewMenu, wxID_ANY, "OpenAxis Diagnostics", "Show OpenAxis navigation diagnostics",
+            [](wxCommandEvent&) {
+                if (auto *canvas = wxGetApp().plater()->get_current_canvas3D()) canvas->toggle_openaxis_diagnostics();
+            });
+#endif
         viewMenu->AppendSeparator();
 
         wxMenuItem *camera_fullscreen_item = append_menu_item(

@@ -2,8 +2,6 @@ name: 'CD: Homebrew Cask'
 run-name: "Homebrew update — ${{ github.event.release.tag_name || inputs.version || 'latest' }}"
 
 on:
-  release:
-    types: [released]
   workflow_dispatch:
     inputs:
       version:
@@ -19,6 +17,7 @@ concurrency:
 
 jobs:
   homebrew-update:
+    if: github.repository == 'bambulab/BambuStudio'
     name: Update Homebrew Cask
     runs-on: ubuntu-24.04
     timeout-minutes: 15

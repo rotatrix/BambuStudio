@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Bambu Studio - Rotatrix Build (unofficial)
+Name=BambuStudio
 GenericName=3D Printing Software
 Icon=BambuStudio
 Exec=bambu-studio %U

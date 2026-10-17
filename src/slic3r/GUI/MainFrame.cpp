@@ -215,7 +215,7 @@ static const wxString ctrl = _L("Ctrl+");
 #endif
 
 MainFrame::MainFrame() :
-DPIFrame(NULL, wxID_ANY, SLIC3R_APP_DISPLAY_NAME, wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_STYLE, "mainframe")
+DPIFrame(NULL, wxID_ANY, SLIC3R_APP_FULL_NAME " - Rotatrix (unofficial build)", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_STYLE, "mainframe")
     , m_printhost_queue_dlg(new PrintHostQueueDialog(this))
     // BBS
     , m_recent_projects(18)
@@ -1200,12 +1200,12 @@ void MainFrame::update_title()
     m_title_cache = title;
 #ifdef __WINDOWS__
     if (m_topbar)
-        m_topbar->SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME + " - Rotatrix (unofficial build)");
+        m_topbar->SetTitle(title + " - " + SLIC3R_APP_FULL_NAME + " - Rotatrix (unofficial build)");
     // Also reflect the "*" in the window/taskbar title, which set_project_name builds
     // as "<name> - BambuStudio".
-    SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME + " - Rotatrix (unofficial build)");
+    SetTitle(title + " - " + SLIC3R_APP_FULL_NAME + " - Rotatrix (unofficial build)");
 #else
-    SetTitle(title + " - " + SLIC3R_APP_DISPLAY_NAME + " - Rotatrix (unofficial build)");
+    SetTitle(title + " - " + SLIC3R_APP_FULL_NAME + " - Rotatrix (unofficial build)");
 #ifdef __APPLE__
     if (!title.IsEmpty())
         update_title_colour_after_set_title();

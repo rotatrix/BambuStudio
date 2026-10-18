@@ -75,6 +75,7 @@
 #include <tbb/spin_mutex.h>
 
 #include <boost/log/trivial.hpp>
+#include <wx/dialog.h>
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <iostream>
@@ -1654,7 +1655,15 @@ void GLCanvas3D::refresh_openaxis()
 #else
     const double scale = 1.0;
 #endif
-    const bool focused = m_canvas->IsShownOnScreen() && m_canvas->IsEnabled() &&
+    bool modal = false;
+#ifdef __APPLE__
+    // Native Cocoa panels do not set wxDialog's IsShown()/IsModal() state.
+    modal = wxDialog::OSXHasModalDialogsOpen();
+#endif
+    for (auto *node = wxTopLevelWindows.GetFirst(); !modal && node; node = node->GetNext())
+        if (auto *dialog = dynamic_cast<wxDialog *>(node->GetData()))
+            modal = dialog->IsShown() && dialog->IsModal();
+    const bool focused = !modal && m_canvas->IsShownOnScreen() && m_canvas->IsEnabled() &&
         wxTheApp->IsActive() && wxGetApp().plater()->get_current_canvas3D() == this;
     m_openaxis->refresh(focused, int(cursor.x * scale), int(cursor.y * scale),
                        size.get_width(), size.get_height(), scale);

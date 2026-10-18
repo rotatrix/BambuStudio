@@ -12,6 +12,7 @@
 #include <sstream>
 #include <cmath>
 #include <limits>
+#include <boost/log/trivial.hpp>
 
 namespace Slic3r::GUI {
 using openaxis::Value;
@@ -90,7 +91,12 @@ void OpenAxisController::schedule_diagnostic_expiry() {
 void OpenAxisController::deactivate() {
     m_session.cancel("viewport_inactive");
     m_focused = false;
-    m_connection.refresh_metadata();
+    try {
+        m_connection.refresh_metadata();
+    } catch (const std::exception &e) {
+        // A retired transport must not prevent stop/cleanup during deactivation.
+        BOOST_LOG_TRIVIAL(warning) << "OpenAxis metadata refresh: " << e.what();
+    }
     m_connection.stop();
     m_collector.clear();
     m_context.clear();
@@ -126,7 +132,12 @@ void OpenAxisController::refresh(bool focused, int x, int y, int width, int heig
         m_session.cancel("focus_lost");
     if (m_focused != focused) {
         m_focused = focused;
-        m_connection.refresh_metadata();
+        try {
+            m_connection.refresh_metadata();
+        } catch (const std::exception &e) {
+            // Keep dispatching so the connection manager can process loss/reconnect.
+            BOOST_LOG_TRIVIAL(warning) << "OpenAxis metadata refresh: " << e.what();
+        }
     }
     if (native_changed && m_focused && !m_writing_camera)
         m_session.native_camera_changed();

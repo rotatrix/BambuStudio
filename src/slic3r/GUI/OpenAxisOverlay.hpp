@@ -5,6 +5,11 @@
 
 namespace Slic3r::GUI::OpenAxisOverlay {
 using Clip = std::array<double, 4>;
+// SDK screen markers use logical pixels; Bambu ImGui uses framebuffer pixels.
+inline std::array<double, 2> framebuffer_point(const std::array<double, 2>& logical, double scale) {
+    return {logical[0] * scale, logical[1] * scale};
+}
+
 struct Viewport {
     double x, y, width, height, framebuffer_height, scale;
     bool valid() const { return width > 0 && height > 0 && scale > 0; }

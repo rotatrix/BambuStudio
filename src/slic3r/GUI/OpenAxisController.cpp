@@ -331,18 +331,24 @@ void OpenAxisController::render_indicator() {
     if (!m_pivot || !viewport_available() || context_key() != m_context) return;
     const Vec4d clip = m_camera.get_projection_matrix().matrix() * m_camera.get_view_matrix().matrix() * Vec4d(m_pivot->x, m_pivot->y, m_pivot->z, 1);
     if (!OpenAxisOverlay::visible({clip.x(), clip.y(), clip.z(), clip.w()})) return;
-    const ImVec2 pixel(float((clip.x() / clip.w() + 1) * .5 * m_width / m_scale), float((1 - clip.y() / clip.w()) * .5 * m_height / m_scale));
+    // Bambu's ImGui DisplaySize is already in framebuffer pixels, with
+    // DisplayFramebufferScale=1. Do not divide drawing positions by Retina DPI.
+    const auto &v = m_camera.get_viewport();
+    const OpenAxisOverlay::Viewport viewport{double(v[0]), double(v[1]), double(v[2]), double(v[3]),
+                                             double(m_height), 1.0};
+    const auto projected = viewport.project({clip.x(), clip.y(), clip.z(), clip.w()});
+    const ImVec2 pixel{float(projected[0]), float(projected[1])};
     float depth = 1.f;
     // BambuStudio renders through multisampled offscreen framebuffers. Its
     // manager resolves the depth attachment and restores the active framebuffer.
     wxGetApp().get_opengl_manager()->read_pixel("",
-        std::clamp(int(pixel.x * m_scale), 0, m_width - 1),
-        std::clamp(m_height - 1 - int(pixel.y * m_scale), 0, m_height - 1),
+        std::clamp(int(pixel.x), 0, m_width - 1),
+        std::clamp(m_height - 1 - int(pixel.y), 0, m_height - 1),
         1, 1, EPixelFormat::DepthComponent, EPixelDataType::Float, &depth);
     const int alpha = (clip.z() / clip.w() + 1) * .5 > depth + 1e-5 ? 64 : 255;
     auto *draw = ImGui::GetBackgroundDrawList();
-    draw->AddCircle(pixel, 4.75f, IM_COL32(0, 0, 0, alpha), 32, 1.5f);
-    draw->AddCircleFilled(pixel, 4.f, IM_COL32(0, 255, 0, alpha));
+    draw->AddCircle(pixel, 4.75f * float(m_scale), IM_COL32(0, 0, 0, alpha), 32, 1.5f * float(m_scale));
+    draw->AddCircleFilled(pixel, 4.f * float(m_scale), IM_COL32(0, 255, 0, alpha));
 }
 void OpenAxisController::render_overlay() {
     if (!m_diagnostics_visible || !viewport_available())
@@ -357,7 +363,7 @@ void OpenAxisController::render_overlay() {
                                        double(v[2]),
                                        double(v[3]),
                                        double(m_height),
-                                       m_scale};
+                                       1.0};
     auto pixel = [](const std::array<double, 2> &p) { return ImVec2(float(p[0]), float(p[1])); };
     auto clip = [&](openaxis::Vec3 p) {
         const Vec4d q =
@@ -376,28 +382,30 @@ void OpenAxisController::render_overlay() {
         auto a = clip(segment.start), b = clip(segment.end);
         if (OpenAxisOverlay::clip_segment(a, b))
             draw->AddLine(pixel(viewport.project(a)), pixel(viewport.project(b)),
-                          color(segment.tone, segment.opacity), float(segment.width));
+                          color(segment.tone, segment.opacity), float(segment.width * m_scale));
     }
+    const float unit = float(m_scale);
     for (const auto &marker : frame.markers) {
-        auto p = pixel(marker.point);
+        // SDK marker positions are logical pixels; ImGui draws physical pixels.
+        auto p = pixel(OpenAxisOverlay::framebuffer_point(marker.point, m_scale));
         auto c = color(marker.tone, .65);
-        draw->AddLine({p.x - 9, p.y}, {p.x + 9, p.y}, IM_COL32_BLACK, 4);
-        draw->AddLine({p.x, p.y - 9}, {p.x, p.y + 9}, IM_COL32_BLACK, 4);
-        draw->AddLine({p.x - 9, p.y}, {p.x + 9, p.y}, c, 2);
-        draw->AddLine({p.x, p.y - 9}, {p.x, p.y + 9}, c, 2);
+        draw->AddLine({p.x - 9 * unit, p.y}, {p.x + 9 * unit, p.y}, IM_COL32_BLACK, 4 * unit);
+        draw->AddLine({p.x, p.y - 9 * unit}, {p.x, p.y + 9 * unit}, IM_COL32_BLACK, 4 * unit);
+        draw->AddLine({p.x - 9 * unit, p.y}, {p.x + 9 * unit, p.y}, c, 2 * unit);
+        draw->AddLine({p.x, p.y - 9 * unit}, {p.x, p.y + 9 * unit}, c, 2 * unit);
         std::istringstream labels(marker.label);
         std::string label;
-        float y = p.y - 8;
+        float y = p.y - 8 * unit;
         while (std::getline(labels, label)) {
-            draw->AddText({p.x + 13, y + 1}, IM_COL32_BLACK, label.c_str());
-            draw->AddText({p.x + 12, y}, c, label.c_str());
-            y += 15;
+            draw->AddText({p.x + 13 * unit, y + unit}, IM_COL32_BLACK, label.c_str());
+            draw->AddText({p.x + 12 * unit, y}, c, label.c_str());
+            y += 15 * unit;
         }
     }
     // Leave room for the 80-logical-pixel viewcube and its surrounding margin.
-    const float text_x = lo.x + 120;
+    const float text_x = lo.x + 120 * float(m_scale);
     const float line_height = ImGui::GetTextLineHeightWithSpacing();
-    float y = std::max(lo.y + 24, hi.y - 24 - float(frame.lines.size()) * line_height);
+    float y = std::max(lo.y + 24 * unit, hi.y - 24 * unit - float(frame.lines.size()) * line_height);
     for (const auto &line : frame.lines) {
         draw->AddText({text_x + 1, y + 1}, IM_COL32_BLACK, line.text.c_str());
         draw->AddText({text_x, y}, color(line.tone), line.text.c_str());

@@ -16,6 +16,17 @@ int main() try {
     check(v.project({1, -1, 0, 1}) == std::array<double, 2>{500, 450}, "bottom-right pixel origin");
     check(v.project({1, -1, 0, 2}) == std::array<double, 2>{400, 375},
           "perspective division before viewport mapping");
+    // Bambu ImGui has DisplayFramebufferScale=1 even on Retina. World-space
+    // pivots/segments and logical SDK crosshairs must meet in physical pixels.
+    for (double dpi : {1.0, 1.5, 2.0}) {
+        Viewport physical{100 * dpi, 50 * dpi, 400 * dpi, 300 * dpi, 500 * dpi, 1};
+        check(physical.project({0, 0, 0, 1}) == framebuffer_point({300, 300}, dpi),
+              "projected pivot and SDK center crosshair agree at display DPI");
+        check(physical.project({0.5, -0.5, 0, 1}) == framebuffer_point({400, 375}, dpi),
+              "off-center pivot and SDK cursor crosshair agree at display DPI");
+        check(physical.pixel(physical.x, physical.top()) == framebuffer_point({100, 150}, dpi),
+              "ImGui clipping rectangle uses physical pixels");
+    }
     check(!visible({0, 0, 0, -1}), "behind-eye marker");
     check(!visible({0, 0, 2, 1}), "far-clipped marker");
     check(!visible({0, 0, -2, 1}), "near-clipped marker");

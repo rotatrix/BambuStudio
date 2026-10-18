@@ -1,12 +1,17 @@
+# Camera.hpp includes native wx/OpenGL types. Reuse the GUI target's build
+# interface instead of discovering a second, potentially different wx install.
 get_filename_component(_TEST_NAME ${CMAKE_CURRENT_LIST_DIR} NAME)
 add_executable(${_TEST_NAME}_tests
     ${_TEST_NAME}_tests_main.cpp
+    camera_tests.cpp
     helio_retry_policy_tests.cpp
     helio_support_data_tests.cpp
     helio_recent_runs_tests.cpp
     )
 
 target_link_libraries(${_TEST_NAME}_tests test_common libslic3r_gui libslic3r)
+target_include_directories(${_TEST_NAME}_tests PRIVATE $<TARGET_PROPERTY:libslic3r_gui,INCLUDE_DIRECTORIES>)
+target_compile_definitions(${_TEST_NAME}_tests PRIVATE $<TARGET_PROPERTY:libslic3r_gui,COMPILE_DEFINITIONS>)
 if (MSVC)
     target_link_libraries(${_TEST_NAME}_tests Setupapi.lib)
 endif ()

@@ -1,5 +1,6 @@
 #include "OpenAxisController.hpp"
 #include "OpenAxisOverlay.hpp"
+#include "OpenAxisCamera.hpp"
 #include "GLCanvas3D.hpp"
 #include "GUI_App.hpp"
 #include "Plater.hpp"
@@ -221,14 +222,11 @@ bool OpenAxisController::write_camera(const openaxis::Pose &p) {
         ~Writing() { flag = false; }
     } writing(m_writing_camera);
     auto &c = m_camera;
-    c.set_type(p.fov > 0 ? Camera::EType::Perspective : Camera::EType::Ortho);
     auto q = openaxis::Quat::from_rotvec(p.r);
     const Vec3d position = vector(p.t), forward = vector(q.rotate({0, 0, -1}));
-    // Preserve the native orbit radius while updating its quaternion and target.
-    // Native mouse input then continues from exactly the realized SDK pose.
-    const double distance = std::max(1.0, m_pivot ? (position - vector(*m_pivot)).norm() : c.get_distance());
-    c.look_at(position, position + distance * forward, vector(q.rotate({0, 1, 0})));
-    c.set_zoom(p.fov > 0 ? m_height / (2 * distance * std::tan(p.fov / 2)) : m_height / p.ortho_extent);
+    apply_openaxis_camera(c, position, forward, vector(q.rotate({0, 1, 0})),
+                          m_pivot ? std::optional<Vec3d>(vector(*m_pivot)) : std::nullopt,
+                          p.fov, p.ortho_extent);
     m_canvas.update_openaxis_projection();
     m_last_view = c.get_view_matrix();
     m_last_zoom = c.get_zoom();

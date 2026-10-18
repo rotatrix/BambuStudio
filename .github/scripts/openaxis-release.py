@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 REPO = 'rotatrix/BambuStudio'
 WORKFLOW = '.github/workflows/openaxis-build.yml'
-PLATFORMS = ('windows-x64', 'macos-arm64', 'macos-x86_64', 'linux-x64')
+PLATFORMS = ('windows-x64', 'macos-arm64', 'macos-x86_64', 'linux-x64-ubuntu22')
 TAG = re.compile(r'(v02\.08\.02\.61)-rotatrix\.[1-9][0-9]*(?:-beta\.[1-9][0-9]*)?\Z')
 
 

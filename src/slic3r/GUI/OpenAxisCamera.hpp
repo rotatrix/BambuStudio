@@ -15,7 +15,7 @@ inline void apply_openaxis_camera(Camera& c, const Vec3d& position, const Vec3d&
         c.get_distance(), c.get_zoom(), c.get_viewport()[3],
         c.get_type() == Camera::EType::Perspective,
         pivot ? std::optional<double>((*pivot - position).dot(forward)) : std::nullopt,
-        fov, ortho_extent);
+        fov, c.get_type() == Camera::EType::Ortho ? ortho_extent : 0.0);
     c.look_at(position, position + scale.distance * forward, up);
     c.set_zoom(scale.zoom); // Retain Bambu's native zoom limits and frustum adjustment.
 }

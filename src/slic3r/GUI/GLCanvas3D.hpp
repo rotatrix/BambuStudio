@@ -897,6 +897,7 @@ public:
 
     //BBS
     gcode::GCodeViewer& get_gcode_viewer() const;
+    bool pick_gcode_extrusion(const Vec2d& pixel, Vec3d& point);
     void init_gcode_viewer(ConfigOptionMode mode, Slic3r::PresetBundle* preset_bundle);
     void reset_gcode_toolpaths();
     void update_gcode_sequential_view_current(unsigned int first, unsigned int last);

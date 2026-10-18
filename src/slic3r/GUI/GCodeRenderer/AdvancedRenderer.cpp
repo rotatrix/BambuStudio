@@ -698,22 +698,7 @@ namespace Slic3r
                     return;
                 }
 
-                m_p_layer_manager->set_view_type(m_view_type);
-
-                bool b_needs_to_update_move_slider = m_p_layer_manager->update_visibile_segment_list(false, m_tools.m_tool_visibles);
-
-                if (m_p_layer_manager->is_layer_dirty()) {
-                    b_needs_to_update_move_slider = true;
-                    m_p_layer_manager->clear_layer_dirty();
-                }
-
-                if (b_needs_to_update_move_slider) {
-                    update_moves_slider(true);
-                }
-
-                m_p_layer_manager->update_transient_segment_list(b_needs_to_update_move_slider);
-
-                m_p_layer_manager->update_per_move_data(m_view_type, *m_gcode_result);
+                prepare_toolpaths();
 
                 render_toolpaths();
                 //render_shells();
@@ -1092,7 +1077,29 @@ namespace Slic3r
                 return m_p_layer_manager;
             }
 
-            void AdvancedRenderer::render_toolpaths()
+            void AdvancedRenderer::prepare_toolpaths()
+            {
+                m_p_layer_manager->set_view_type(m_view_type);
+                bool changed = m_p_layer_manager->update_visibile_segment_list(false, m_tools.m_tool_visibles);
+                if (m_p_layer_manager->is_layer_dirty()) {
+                    changed = true;
+                    m_p_layer_manager->clear_layer_dirty();
+                }
+                if (changed)
+                    update_moves_slider(true);
+                m_p_layer_manager->update_transient_segment_list(changed);
+                m_p_layer_manager->update_per_move_data(m_view_type, *m_gcode_result);
+            }
+
+            void AdvancedRenderer::render_extrusions_for_picking()
+            {
+                if (m_b_loading || !m_gcode_result || !m_p_layer_manager || m_p_layer_manager->empty() || m_roles.empty())
+                    return;
+                prepare_toolpaths();
+                render_toolpaths(true);
+            }
+
+            void AdvancedRenderer::render_toolpaths(bool extrusions_only)
             {
                 const auto& p_layer_manager = get_layer_manager();
                 if (!p_layer_manager) {
@@ -1126,17 +1133,20 @@ namespace Slic3r
                 const bool b_top_layer_only = show_sequential_view();
 
                 // render EMoveType::Tool_change && EMoveType::Color_change && EMoveType::Pause_Print && EMoveType::Custom_GCode && EMoveType::Retract && EMoveType::Unretract && EMoveType::Seam:
-                initialize_diamond();
-                do_render_options(t_opaque_list, b_top_layer_only);
+                if (!extrusions_only) {
+                    initialize_diamond();
+                    do_render_options(t_opaque_list, b_top_layer_only);
+                }
 
                 // render EMoveType::Wipe && EMoveType::Extrude && EMoveType::Travel
                 initialize_triangular_prism();
-                do_render_others(t_opaque_list, b_top_layer_only);
+                do_render_others(t_opaque_list, b_top_layer_only, extrusions_only);
 
-                do_render_transparency(t_transparency_list);
+                if (!extrusions_only)
+                    do_render_transparency(t_transparency_list);
             }
 
-            void AdvancedRenderer::do_render_others(const std::vector<uint32_t>& layer_index_list, bool top_layer_only)
+            void AdvancedRenderer::do_render_others(const std::vector<uint32_t>& layer_index_list, bool top_layer_only, bool extrusions_only)
             {
                 if (layer_index_list.empty()) {
                     return;
@@ -1173,6 +1183,7 @@ namespace Slic3r
                 p_shader->set_uniform("u_pathDataRange", Vec2f(
                     data_range.min,
                     data_range.max));
+                p_shader->set_uniform("u_pick_extrusions", extrusions_only);
 
                 bool b_unlit = false;
                 p_shader->set_uniform("u_rangeType_isUnlit_topLayerIndex", Vec3f(float(range_type), float(b_unlit), float(p_layer_manager->get_current_layer_end())));

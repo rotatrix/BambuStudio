@@ -157,6 +157,8 @@ namespace Slic3r {
                 virtual void export_toolpaths_to_obj(const char* filename) const = 0;
                 virtual void set_layers_z_range(const std::array<unsigned int, 2>& layers_z_range) = 0;
                 virtual void render(int canvas_width, int canvas_height, int right_margin) = 0;
+                // Draw only visible extrusion surfaces, using the native layer/role filters.
+                virtual void render_extrusions_for_picking() = 0;
                 virtual bool is_move_type_visible(EMoveType type) const = 0;
                 virtual void set_move_type_visible(EMoveType type, bool visible) = 0;
                 virtual bool is_extrusion_role_visible(ExtrusionRole role) const = 0;

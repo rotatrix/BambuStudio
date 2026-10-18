@@ -78,7 +78,13 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo ./BuildLinux.sh -ur
-          sudo apt-get install -y xvfb libfuse2
+          sudo apt-get install -y xvfb libfuse2 libegl1 libgl1-mesa-dri
+      - name: Validate extrusion picking shader
+        if: runner.os == 'Linux'
+        env:
+          EGL_PLATFORM: surfaceless
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: python -B tests/openaxis/test_gcode_picking.py -v
       - name: macOS prerequisites
         if: runner.os == 'macOS'
         run: brew install automake texinfo libtool gettext nasm yasm pkg-config

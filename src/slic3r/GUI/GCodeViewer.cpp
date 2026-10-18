@@ -1,13 +1,98 @@
+#include <GL/glew.h>
 #include "GCodeViewer.hpp"
 #include "slic3r/GUI/GCodeRenderer/AdvancedRenderer.hpp"
 #include "slic3r/GUI/GCodeRenderer/LegacyRenderer.hpp"
 #include "slic3r/GUI/OpenGLManager.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "libslic3r/BoundingBox.hpp"
+#include "Camera.hpp"
+#include <igl/unproject.h>
+#include <cmath>
 namespace Slic3r {
     namespace GUI {
         namespace gcode
         {
+            bool GCodeViewer::pick_extrusion(const Vec2d& pixel, const Camera& camera, Vec3d& point)
+            {
+                const auto& renderer = get_renderer();
+                const auto& viewport = camera.get_viewport();
+                if (!renderer || !renderer->has_data() || !OpenGLManager::are_framebuffers_supported() ||
+                    !pixel.allFinite() || pixel.x() < 0 || pixel.y() < 0 ||
+                    pixel.x() >= viewport[2] || pixel.y() >= viewport[3])
+                    return false;
+
+                const int x = int(pixel.x()), y = viewport[3] - 1 - int(pixel.y());
+                auto& manager = *wxGetApp().get_opengl_manager();
+                // Reuse the renderer, not a second approximation of its segments.
+                // A translated viewport renders just the requested pixel into a
+                // single-sample 1x1 target, independent of display MSAA/FXAA.
+                GLint old_viewport[4], old_fbo, old_depth_func, old_active_texture;
+                GLboolean old_depth_mask, old_color_mask[4];
+                GLdouble old_clear_depth;
+                glGetIntegerv(GL_VIEWPORT, old_viewport);
+                glGetIntegerv(GL_FRAMEBUFFER_BINDING, &old_fbo);
+                glGetIntegerv(GL_DEPTH_FUNC, &old_depth_func);
+                glGetIntegerv(GL_ACTIVE_TEXTURE, &old_active_texture);
+                glGetBooleanv(GL_DEPTH_WRITEMASK, &old_depth_mask);
+                glGetBooleanv(GL_COLOR_WRITEMASK, old_color_mask);
+                glGetDoublev(GL_DEPTH_CLEAR_VALUE, &old_clear_depth);
+                const bool depth_enabled = glIsEnabled(GL_DEPTH_TEST);
+                const bool blend_enabled = glIsEnabled(GL_BLEND);
+                const bool scissor_enabled = glIsEnabled(GL_SCISSOR_TEST);
+                const bool stencil_enabled = glIsEnabled(GL_STENCIL_TEST);
+                const auto shader = manager.get_current_shader();
+                float depth = 1.0f;
+                {
+                    FrameBuffer frame({1, 1, 0});
+                    frame.bind();
+                    GLint pick_fbo = 0;
+                    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &pick_fbo);
+                    // A failed FBO allocation must never clear the visible framebuffer.
+                    const bool complete = pick_fbo != 0 &&
+                        (OpenGLManager::get_framebuffers_type() == OpenGLManager::EFramebufferType::Ext ?
+                         glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) == GL_FRAMEBUFFER_COMPLETE_EXT :
+                         glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+                    if (complete) {
+                        manager.bind_vao();
+                        glViewport(-x, -y, viewport[2], viewport[3]);
+                        glDisable(GL_SCISSOR_TEST);
+                        glDisable(GL_BLEND);
+                        glDisable(GL_STENCIL_TEST);
+                        glEnable(GL_DEPTH_TEST);
+                        glDepthFunc(GL_LESS);
+                        glDepthMask(GL_TRUE);
+                        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                        glClearDepth(1.0);
+                        glClear(GL_DEPTH_BUFFER_BIT);
+                        renderer->render_extrusions_for_picking();
+                        glReadPixels(0, 0, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+                    }
+                }
+                if (OpenGLManager::get_framebuffers_type() == OpenGLManager::EFramebufferType::Ext)
+                    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, old_fbo);
+                else
+                    glBindFramebuffer(GL_FRAMEBUFFER, old_fbo);
+                glViewport(old_viewport[0], old_viewport[1], old_viewport[2], old_viewport[3]);
+                glDepthFunc(old_depth_func);
+                glDepthMask(old_depth_mask);
+                glColorMask(old_color_mask[0], old_color_mask[1], old_color_mask[2], old_color_mask[3]);
+                glClearDepth(old_clear_depth);
+                (depth_enabled ? glEnable : glDisable)(GL_DEPTH_TEST);
+                (blend_enabled ? glEnable : glDisable)(GL_BLEND);
+                (scissor_enabled ? glEnable : glDisable)(GL_SCISSOR_TEST);
+                (stencil_enabled ? glEnable : glDisable)(GL_STENCIL_TEST);
+                glActiveTexture(old_active_texture);
+                if (shader) manager.bind_shader(shader);
+                else manager.unbind_shader();
+
+                if (!std::isfinite(depth) || depth < 0.0f || depth >= 1.0f)
+                    return false;
+                igl::unproject(Vec3d(viewport[0] + x + 0.5, viewport[1] + y + 0.5, depth),
+                    camera.get_view_matrix().matrix(), camera.get_projection_matrix().matrix(),
+                    Vec4i(viewport.data()), point);
+                return point.allFinite();
+            }
+
             GCodeViewer::GCodeViewer()
             {
             }

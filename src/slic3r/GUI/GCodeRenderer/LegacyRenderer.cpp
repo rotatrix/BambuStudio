@@ -2159,7 +2159,7 @@ namespace Slic3r {
                 }
             }
 
-            void LegacyRenderer::render_toolpaths()
+            void LegacyRenderer::render_toolpaths(bool extrusions_only)
             {
 #if ENABLE_FIXED_SCREEN_SIZE_POINT_MARKERS
                 float point_size = 20.0f;
@@ -2279,6 +2279,8 @@ namespace Slic3r {
                                 //BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(":begin_id %1%, end_id %2% ")%(int)begin_id %(int)end_id;
                                 const auto& ogl_manager = wxGetApp().get_opengl_manager();
                                 for (unsigned char i = begin_id; i < end_id; ++i) {
+                                    if (extrusions_only && i != buffer_id(EMoveType::Extrude))
+                                        continue;
                                     TBuffer& buffer = m_buffers[i];
                                     if (!buffer.visible || !buffer.has_data())
                                         continue;
@@ -2349,7 +2351,7 @@ namespace Slic3r {
                                                 }
                                                 case TBuffer::ERenderPrimitiveType::Triangle: {
                                                     render_sub_paths(it_path, buffer.render_paths.rend(), *shader, uniform_color, (unsigned int)EDrawPrimitiveType::Triangles);
-                                                    if (m_view_type == EViewType::ColorPrint || m_view_type == EViewType::Summary) {
+                                                    if (!extrusions_only && (m_view_type == EViewType::ColorPrint || m_view_type == EViewType::Summary)) {
                                                         for (uint32_t i_effect_render_path = 0; i_effect_render_path < buffer.multi_effect_layer_render_paths.size(); ++i_effect_render_path) {
                                                             const auto t_render_path_index = buffer.multi_effect_layer_render_paths[i_effect_render_path];
                                                             const auto& t_render_path = buffer.render_paths[t_render_path_index];

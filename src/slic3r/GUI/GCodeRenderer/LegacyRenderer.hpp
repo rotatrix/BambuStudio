@@ -453,6 +453,7 @@ namespace Slic3r {
                 void reset() override;
                 //BBS: GUI refactor: add canvas width and height
                 void render(int canvas_width, int canvas_height, int right_margin) override;
+                void render_extrusions_for_picking() override { render_toolpaths(true); }
                 //BBS
                 void _render_calibration_thumbnail_internal(ThumbnailData& thumbnail_data, const ThumbnailsParams& thumbnail_params, PartPlateList& partplate_list, OpenGLManager& opengl_manager);
                 void _render_calibration_thumbnail_framebuffer(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h, const ThumbnailsParams& thumbnail_params, PartPlateList& partplate_list, OpenGLManager& opengl_manager);
@@ -480,7 +481,7 @@ namespace Slic3r {
                 void refresh_render_paths(bool keep_sequential_current_first, bool keep_sequential_current_last) const;
                 template<typename Iterator>
                 void render_sub_paths(Iterator it_path, Iterator it_end, GLShaderProgram& shader, int uniform_color, unsigned int draw_type);
-                void render_toolpaths();
+                void render_toolpaths(bool extrusions_only = false);
                 void draw_render_path(const RenderPath& t_render_path, unsigned int t_draw_type, int uniform_color, const Color& t_color);
 #if ENABLE_GCODE_VIEWER_STATISTICS
                 void render_statistics();

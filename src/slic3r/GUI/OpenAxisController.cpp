@@ -266,6 +266,13 @@ Value OpenAxisController::fact(const std::string &name) {
         const Vec2d pixel(center ? m_width * .5 : m_x, center ? m_height * .5 : m_y);
         Value result = {{"markerPosition", {pixel.x() / m_scale, pixel.y() / m_scale}}};
         double closest = std::numeric_limits<double>::max();
+        // Preview extrusions are renderer geometry, not ModelVolumes. Use the
+        // native visible toolpaths so hidden layers/roles never become pivots.
+        Vec3d extrusion_point;
+        if (!only && m_canvas.pick_gcode_extrusion(pixel, extrusion_point)) {
+            closest = (extrusion_point - c.get_position()).squaredNorm();
+            result["point"] = openaxis::vector_value(vector(extrusion_point));
+        }
         for (unsigned i = 0; i < volumes.size(); ++i) {
             const auto *volume = volumes[i];
             if (!volume->is_active || volume->disabled || (only && !selected.count(i))) continue;

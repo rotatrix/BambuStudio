@@ -18,6 +18,10 @@ native camera changes are reconciled with the session.
 
 Picks use BambuStudio mesh-raycasting helpers with scene-scoped owned mesh snapshots, without changing native hover state. Plate top surfaces participate in ordinary picks; toolbar icons and gizmos do not. Selection picks use selected model volumes. Plate shapes already include their world placement.
 
+In Preview, ordinary picks also hit visible G-code extrusion surfaces using the
+native renderer's layer, move-range and feature filters. Travel/wipe moves and
+the nozzle marker are excluded. Empty areas still fall back to plate picking.
+
 View > OpenAxis Diagnostics opens a compact connection, focus, and gesture panel.
 Viewport evidence is enabled while the panel is open; the pivot remains visible
 independently. Logs are available in the external Rotatrix log viewer.

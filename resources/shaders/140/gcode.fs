@@ -28,6 +28,7 @@ uniform vec4 u_isRangeView_isRangeVaild_topLayerOnly_viewType;
 uniform vec2 u_pathDataRange;
 uniform sampler2D s_color_range_texture;
 uniform samplerBuffer s_per_move_data_texture;
+uniform bool u_pick_extrusions;
 
 in float moveId;
 in vec3 frag_normal;
@@ -141,6 +142,9 @@ void main()
     vec4 custom_option_color = vec4(0.5, 0.5, 0.5, 1.0);
 
     vec3 type_rangeData_deltaExtruder = texelFetch(s_per_move_data_texture, int(moveId)).rgb;
+    // EMoveType::Extrude. Travel/wipe moves must not occlude an extrusion pick.
+    if (u_pick_extrusions && (type_rangeData_deltaExtruder.x < 9.5 || type_rangeData_deltaExtruder.x > 10.5))
+        discard;
     vec4 base_color = get_base_color(type_rangeData_deltaExtruder);
 
     vec4 mixed_color = mix(custom_option_color, base_color, u_isTopLayer_hasCustomOptins.y > 0.5 ? 0.0 : 1.0);

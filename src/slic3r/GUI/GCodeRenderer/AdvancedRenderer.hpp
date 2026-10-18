@@ -76,6 +76,7 @@ namespace Slic3r {
                 void export_toolpaths_to_obj(const char* filename) const;
                 void set_layers_z_range(const std::array<unsigned int, 2>& layers_z_range);
                 void render(int canvas_width, int canvas_height, int right_margin);
+                void render_extrusions_for_picking() override;
                 void reset() override;
                 bool is_move_type_visible(EMoveType type) const override;
                 void set_move_type_visible(EMoveType type, bool visible) override;
@@ -93,8 +94,9 @@ namespace Slic3r {
             private:
                 void load_layer_info(const GCodeProcessorResult& gcode_result, const BuildVolume& build_volume, const std::vector<BoundingBoxf3>& exclude_bounding_box);
                 const std::shared_ptr<LayerManager>& get_layer_manager() const;
-                void render_toolpaths();
-                void do_render_others(const std::vector<uint32_t>& layer_index_list, bool top_layer_only);
+                void prepare_toolpaths();
+                void render_toolpaths(bool extrusions_only = false);
+                void do_render_others(const std::vector<uint32_t>& layer_index_list, bool top_layer_only, bool extrusions_only = false);
                 void do_render_options(const std::vector<uint32_t>& layer_index_list, bool top_layer_only);
                 void do_render_transparency(const std::vector<uint32_t>& layer_index_list);
                 gcode::Range get_range_according_to_view_type(gcode::EViewType type) const;

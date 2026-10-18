@@ -18,6 +18,7 @@ namespace Slic3r {
     class PresetBundle;
     class BoundingBoxf3;
     namespace GUI {
+        struct Camera;
         class PartPlateList;
         class IMSlider;
         namespace gcode {
@@ -70,6 +71,8 @@ namespace Slic3r {
                 const FilamentPrintableResult& get_filament_printable_result() const;
                 const ConflictResultOpt& get_conflict_result() const;
                 void render(int canvas_width, int canvas_height, int right_margin);
+                // The caller must make this canvas's GL context current.
+                bool pick_extrusion(const Vec2d& pixel, const Camera& camera, Vec3d& point);
                 const Shells& get_shells() const;
                 void set_scale(float scale = 1.0);
                 // helio

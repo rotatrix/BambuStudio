@@ -2743,6 +2743,13 @@ bool GLCanvas3D::make_current_for_postinit() {
     return _set_current(true);
 }
 
+bool GLCanvas3D::pick_gcode_extrusion(const Vec2d& pixel, Vec3d& point)
+{
+    if (m_canvas_type != CanvasPreview || !m_render_preview || !m_initialized || !_set_current())
+        return false;
+    return get_gcode_viewer().pick_extrusion(pixel, wxGetApp().plater()->get_camera(), point);
+}
+
 void GLCanvas3D::mark_context_dirty()
 {
     m_dirty_context = true;

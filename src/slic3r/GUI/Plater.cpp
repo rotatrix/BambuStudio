@@ -109,6 +109,9 @@
 #include "3DBed.hpp"
 #include "PartPlate.hpp"
 #include "Camera.hpp"
+#ifdef SLIC3R_OPENAXIS
+#include "OpenAxisController.hpp"
+#endif
 #include "GCodeViewer.hpp"
 #include "IMSlider.hpp"
 #include "Mouse3DController.hpp"
@@ -6466,6 +6469,9 @@ struct Plater::priv
 {
 private:
     Camera camera;
+#ifdef SLIC3R_OPENAXIS
+    std::unique_ptr<OpenAxisController> openaxis;
+#endif
 public:
     // PIMPL back pointer ("Q-Pointer")
     Plater *q;
@@ -7802,10 +7808,17 @@ Plater::priv::priv(Plater *q, MainFrame *main_frame)
     //    sidebar->collapse(is_collapsed);
     //}
     update_sidebar(true);
+#ifdef SLIC3R_OPENAXIS
+    openaxis = std::make_unique<OpenAxisController>(camera, "BambuStudio", "bambustudio",
+        std::vector<std::string>{"app.bambustudio", "workspace.modeling"});
+#endif
 }
 
 Plater::priv::~priv()
 {
+#ifdef SLIC3R_OPENAXIS
+    openaxis.reset();
+#endif
     if (config != nullptr)
         delete config;
     // Saves the database of visited (already shown) hints into hints.ini.

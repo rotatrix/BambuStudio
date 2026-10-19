@@ -1547,9 +1547,7 @@ GLCanvas3D::GLCanvas3D(wxGLCanvas* canvas, Bed3D &bed)
 GLCanvas3D::~GLCanvas3D()
 {
 #ifdef SLIC3R_OPENAXIS
-    if (m_openaxis_scheduler) m_openaxis_scheduler->before_dispatch = {};
-    m_openaxis.reset();
-    m_openaxis_scheduler.reset();
+    if (auto *controller = OpenAxisController::instance()) controller->canvas_destroyed(*this);
 #endif
     reset_volumes(false);
 
@@ -1644,30 +1642,7 @@ void GLCanvas3D::update_openaxis_projection()
     get_active_camera().apply_projection(_max_bounding_box(true, true, true, is_volumes_limit_to_expand_plate()));
 }
 
-void GLCanvas3D::refresh_openaxis()
-{
-    if (!m_openaxis || !m_canvas) return;
-    const Size size = get_canvas_size();
-    const wxPoint cursor = m_canvas->ScreenToClient(wxGetMousePosition());
-    // wx coordinates are logical on Retina; the camera viewport is physical.
-#if ENABLE_RETINA_GL
-    const double scale = size.get_scale_factor();
-#else
-    const double scale = 1.0;
-#endif
-    bool modal = false;
-#ifdef __APPLE__
-    // Native Cocoa panels do not set wxDialog's IsShown()/IsModal() state.
-    modal = wxDialog::OSXHasModalDialogsOpen();
-#endif
-    for (auto *node = wxTopLevelWindows.GetFirst(); !modal && node; node = node->GetNext())
-        if (auto *dialog = dynamic_cast<wxDialog *>(node->GetData()))
-            modal = dialog->IsShown() && dialog->IsModal();
-    const bool focused = !modal && m_canvas->IsShownOnScreen() && m_canvas->IsEnabled() &&
-        wxTheApp->IsActive() && wxGetApp().plater()->get_current_canvas3D() == this;
-    m_openaxis->refresh(focused, int(cursor.x * scale), int(cursor.y * scale),
-                       size.get_width(), size.get_height(), scale);
-}
+
 #endif
 
 void GLCanvas3D::post_event(wxEvent &&event)
@@ -2882,15 +2857,7 @@ void GLCanvas3D::render(bool only_init)
     wxGetApp().imgui()->new_frame();
 
 #ifdef SLIC3R_OPENAXIS
-    if (!m_openaxis) {
-        m_openaxis_scheduler = std::make_shared<OpenAxisScheduler>();
-        m_openaxis = std::make_unique<OpenAxisController>(*this, camera, m_openaxis_scheduler, [this] {
-            set_as_dirty();
-            if (m_canvas) m_canvas->Refresh(false);
-        });
-        m_openaxis_scheduler->before_dispatch = [this] { refresh_openaxis(); };
-    }
-    refresh_openaxis();
+    if (auto *controller = OpenAxisController::instance()) controller->poll();
 #endif
 
     if (m_picking_enabled) {
@@ -3017,7 +2984,7 @@ void GLCanvas3D::render(bool only_init)
      }
 
 #ifdef SLIC3R_OPENAXIS
-    m_openaxis->render_indicator();
+    if (auto *controller = OpenAxisController::instance()) controller->render_indicator(*this);
 #endif
     _render_sequential_clearance();
 #if ENABLE_RENDER_SELECTION_CENTER
@@ -3128,7 +3095,7 @@ void GLCanvas3D::render(bool only_init)
 
     wxGetApp().plater()->get_mouse3d_controller().render_settings_dialog(*this);
 #ifdef SLIC3R_OPENAXIS
-    m_openaxis->render_diagnostics(m_openaxis_diagnostics);
+    if (auto *controller = OpenAxisController::instance()) controller->render_diagnostics(*this);
 #endif
 
     float right_margin = SLIDER_DEFAULT_RIGHT_MARGIN;

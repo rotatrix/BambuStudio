@@ -18,7 +18,6 @@
 #include "Camera.hpp"
 #ifdef SLIC3R_OPENAXIS
 #include "OpenAxisController.hpp"
-#include "OpenAxisScheduler.hpp"
 #endif
 namespace Slic3r { namespace GUI { class AssemblyStepsUtils; } }
 #include "IMToolbar.hpp"
@@ -611,11 +610,7 @@ private:
     bool m_is_dark = false;
     wxGLCanvas* m_canvas;
 #ifdef SLIC3R_OPENAXIS
-    std::shared_ptr<OpenAxisScheduler> m_openaxis_scheduler;
-    std::unique_ptr<OpenAxisController> m_openaxis;
-    bool m_openaxis_diagnostics = false;
     std::uint64_t m_openaxis_scene_revision = 0;
-    void refresh_openaxis();
 #endif
     wxGLContext* m_context;
     bool m_dirty_context{ true };
@@ -855,7 +850,7 @@ public:
 
     bool is_initialized() const { return m_initialized; }
 #ifdef SLIC3R_OPENAXIS
-    void toggle_openaxis_diagnostics() { m_openaxis_diagnostics = !m_openaxis_diagnostics; set_as_dirty(); }
+    void toggle_openaxis_diagnostics() { if (auto *controller = OpenAxisController::instance()) controller->toggle_diagnostics(); }
     std::uint64_t openaxis_scene_revision() const { return m_openaxis_scene_revision; }
     void update_openaxis_projection();
 #endif

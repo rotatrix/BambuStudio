@@ -7809,7 +7809,7 @@ Plater::priv::priv(Plater *q, MainFrame *main_frame)
     //}
     update_sidebar(true);
 #ifdef SLIC3R_OPENAXIS
-    openaxis = std::make_unique<OpenAxisController>(camera, "BambuStudio", "bambustudio",
+    openaxis = std::make_unique<OpenAxisController>(camera, "BambuStudio", GUI_App::format_display_version().c_str(), "bambustudio",
         std::vector<std::string>{"app.bambustudio", "workspace.modeling"});
 #endif
 }

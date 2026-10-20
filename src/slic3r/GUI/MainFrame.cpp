@@ -2773,6 +2773,15 @@ static const wxString sep_space = "";
 static wxMenu* generate_help_menu()
 {
     wxMenu* helpMenu = new wxMenu();
+    const auto rotatrix_build = "Bambu Studio " + std::string(SLIC3R_VERSION) +
+        " - Rotatrix " + std::string(ROTATRIX_RELEASE_VERSION) +
+        " (" + std::string(SLIC3R_COMPILE_VERSION).substr(0, 10) + ")";
+    helpMenu->Append(wxID_ANY, wxString::FromUTF8(rotatrix_build.c_str()))->Enable(false);
+    append_menu_item(helpMenu, wxID_ANY, wxString::FromUTF8("Download Rotatrix builds\xE2\x80\xA6"),
+        "Download unofficial Rotatrix builds", [](wxCommandEvent &) {
+            wxLaunchDefaultBrowser("https://github.com/rotatrix/BambuStudio/releases");
+        });
+    helpMenu->AppendSeparator();
 #ifdef __WINDOWS__
     // shortcut key
     auto alt = GUI::shortkey_alt_prefix();
@@ -2805,16 +2814,6 @@ static wxMenu* generate_help_menu()
     //    [](wxCommandEvent&) {
     //        //TODO
     //    });
-    helpMenu->AppendSeparator();
-    const auto rotatrix_build = "Rotatrix " + std::string(ROTATRIX_RELEASE_VERSION) +
-        " - " + std::string(SLIC3R_COMPILE_VERSION).substr(0, 10);
-    helpMenu->Append(wxID_ANY, wxString::FromUTF8(rotatrix_build.c_str()))->Enable(false);
-    append_menu_item(helpMenu, wxID_ANY, wxString::FromUTF8("Download Rotatrix builds\xE2\x80\xA6"),
-        "Download unofficial Rotatrix builds", [](wxCommandEvent &) {
-            wxLaunchDefaultBrowser("https://github.com/rotatrix/BambuStudio/releases");
-        });
-    helpMenu->AppendSeparator();
-
     append_menu_item(helpMenu, wxID_ANY, _L("Check for Presets Update"), _L("Check for Presets Update"), [](wxCommandEvent &) {
         wxGetApp().check_config_updates_from_menu();
     });
@@ -3301,12 +3300,6 @@ void MainFrame::init_menubar_as_editor()
     if (m_plater) {
         viewMenu = new wxMenu();
         add_common_view_menu_items(viewMenu, this, std::bind(&MainFrame::can_change_view, this));
-#ifdef SLIC3R_OPENAXIS
-        append_menu_item(viewMenu, wxID_ANY, "OpenAxis Diagnostics", "Show OpenAxis navigation diagnostics",
-            [](wxCommandEvent&) {
-                if (auto *canvas = wxGetApp().plater()->get_current_canvas3D()) canvas->toggle_openaxis_diagnostics();
-            });
-#endif
         viewMenu->AppendSeparator();
 
         wxMenuItem *camera_fullscreen_item = append_menu_item(
@@ -3398,6 +3391,15 @@ void MainFrame::init_menubar_as_editor()
         //        std::string show_build_edges = wxGetApp().app_config->get("show_build_edges");
         //        return show_build_edges.compare("true") == 0;
         //    }, this);
+#ifdef SLIC3R_OPENAXIS
+        viewMenu->AppendSeparator();
+        append_menu_check_item(viewMenu, wxID_ANY, "OpenAxis Diagnostics", "Show OpenAxis navigation diagnostics",
+            [](wxCommandEvent &) {
+                if (auto *controller = OpenAxisController::instance()) controller->toggle_diagnostics();
+            }, this,
+            []() { return OpenAxisController::instance() != nullptr; },
+            []() { auto *controller = OpenAxisController::instance(); return controller && controller->diagnostics_visible(); }, this);
+#endif
     }
 
     wxWindowID config_id_base = wxWindow::NewControlId(int(ConfigMenuCnt));
@@ -3905,6 +3907,15 @@ void MainFrame::init_menubar_as_gcodeviewer()
     if (m_plater != nullptr) {
         viewMenu = new wxMenu();
         add_common_view_menu_items(viewMenu, this, std::bind(&MainFrame::can_change_view, this));
+#ifdef SLIC3R_OPENAXIS
+        viewMenu->AppendSeparator();
+        append_menu_check_item(viewMenu, wxID_ANY, "OpenAxis Diagnostics", "Show OpenAxis navigation diagnostics",
+            [](wxCommandEvent &) {
+                if (auto *controller = OpenAxisController::instance()) controller->toggle_diagnostics();
+            }, this,
+            []() { return OpenAxisController::instance() != nullptr; },
+            []() { auto *controller = OpenAxisController::instance(); return controller && controller->diagnostics_visible(); }, this);
+#endif
     }
 
     // helpmenu

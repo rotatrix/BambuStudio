@@ -5517,6 +5517,10 @@ void GUI_App::reset_to_active()
 
 void GUI_App::check_update(bool show_tips, int by_user)
 {
+    // Rotatrix application updates are obtained manually from GitHub Releases.
+    // Guard the entry point so inherited upstream preferences cannot re-enable it.
+    return;
+
     if (version_info.version_str.empty() || version_info.url.empty()) {
         check_beta_version();
         return;
@@ -5648,6 +5652,10 @@ bool GUI_App::check_send_print_version_policy()
 
 void GUI_App::check_new_version(bool show_tips, int by_user)
 {
+    // Rotatrix application updates are obtained manually from GitHub Releases.
+    // Guard the entry point so inherited upstream preferences cannot re-enable it.
+    return;
+
     std::string platform = "windows";
 
 #ifdef __WINDOWS__
@@ -5719,6 +5727,10 @@ void GUI_App::check_new_version(bool show_tips, int by_user)
 
 void GUI_App::check_beta_version(bool show_tips_when_no_beta)
 {
+    // Rotatrix application updates are obtained manually from GitHub Releases.
+    // Guard the entry point so inherited upstream preferences cannot re-enable it.
+    return;
+
     // When the beta channel is off the stable callers have already shown the toast
     // (see check_update / check_new_version), so we just bail out here.
     if (app_config->get("enable_beta_version_update") != "true") {
@@ -5973,6 +5985,10 @@ bool GUI_App::process_network_msg(std::string dev_id, std::string msg)
 //BBS pop up a dialog and download files
 void GUI_App::request_new_version(int by_user)
 {
+    // Rotatrix application updates are obtained manually from GitHub Releases.
+    // Guard the entry point so inherited upstream preferences cannot re-enable it.
+    return;
+
     wxCommandEvent* evt = new wxCommandEvent(EVT_SLIC3R_VERSION_ONLINE);
     evt->SetString(GUI::from_u8(version_info.version_str));
     evt->SetInt(by_user);
@@ -5981,6 +5997,10 @@ void GUI_App::request_new_version(int by_user)
 
 void GUI_App::enter_force_upgrade()
 {
+    // Rotatrix application updates are obtained manually from GitHub Releases.
+    // Guard the entry point so inherited upstream preferences cannot re-enable it.
+    return;
+
     wxCommandEvent *evt = new wxCommandEvent(EVT_ENTER_FORCE_UPGRADE);
     GUI::wxGetApp().QueueEvent(evt);
 }

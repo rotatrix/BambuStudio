@@ -2805,13 +2805,15 @@ static wxMenu* generate_help_menu()
     //    [](wxCommandEvent&) {
     //        //TODO
     //    });
-    // Check New Version
-    append_menu_item(helpMenu, wxID_ANY, _L("Check for Update"), _L("Check for Update"),
-        [](wxCommandEvent&) {
-            wxGetApp().check_new_version(true, 1);
-        }, "", nullptr, []() {
-            return true;
+    helpMenu->AppendSeparator();
+    const auto rotatrix_build = "Rotatrix " + std::string(ROTATRIX_RELEASE_VERSION) +
+        " - " + std::string(SLIC3R_COMPILE_VERSION).substr(0, 10);
+    helpMenu->Append(wxID_ANY, wxString::FromUTF8(rotatrix_build.c_str()))->Enable(false);
+    append_menu_item(helpMenu, wxID_ANY, wxString::FromUTF8("Download Rotatrix builds\xE2\x80\xA6"),
+        "Download unofficial Rotatrix builds", [](wxCommandEvent &) {
+            wxLaunchDefaultBrowser("https://github.com/rotatrix/BambuStudio/releases");
         });
+    helpMenu->AppendSeparator();
 
     append_menu_item(helpMenu, wxID_ANY, _L("Check for Presets Update"), _L("Check for Presets Update"), [](wxCommandEvent &) {
         wxGetApp().check_config_updates_from_menu();

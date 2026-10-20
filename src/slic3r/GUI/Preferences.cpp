@@ -1483,8 +1483,7 @@ wxWindow *PreferencesDialog::create_general_tab()
                                                    _L("With this option enabled, you can send a task to multiple devices at the same time and manage multiple devices."), 50,
                                                    "enable_multi_machine");
 
-    auto item_beta_version_update = create_item_checkbox(_L("Support beta version update."), scrolled, _L("With this option enabled, you can receive beta version updates."), 50,
-                                                         "enable_beta_version_update");
+
 
     // User Experience Improvement Program + "what data" hyperlink.
     auto  item_priv_policy = create_item_checkbox(_L("Join the User Experience Improvement Program."), scrolled, "", 50, "privacyuse");
@@ -1516,7 +1515,6 @@ wxWindow *PreferencesDialog::create_general_tab()
     sizer->Add(wrap_option_row(scrolled, item_single_instance), flags);
     sizer->Add(wrap_option_row(scrolled, item_fila_manager), flags);
     sizer->Add(wrap_option_row(scrolled, item_multi_machine), flags);
-    sizer->Add(wrap_option_row(scrolled, item_beta_version_update), flags);
     sizer->Add(wrap_option_row(scrolled, item_priv_policy), flags);
     sizer->Add(wrap_option_row(scrolled, item_downloads), flags);
     scrolled->SetSizer(sizer);
